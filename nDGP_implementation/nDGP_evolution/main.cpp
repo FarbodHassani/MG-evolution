@@ -523,6 +523,7 @@ int main(int argc, char **argv)
       if (sim.MG_nDGP_Newtonian_flag > 0)
       {
         Modified_Gravity_Newtonian_nDGP(source, source, cosmo.H0rc, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), fourpiG );
+        // cout<<" cosmo.H0rc: "<<cosmo.H0rc<<" a: "<<a<<" Hconf_prime/H^2: "<<Hconf_prime( a, fourpiG, cosmo)/ Hconf(a, fourpiG, cosmo)/ Hconf(a, fourpiG, cosmo)<<" Hconf/H0: "<<Hconf(a, fourpiG, cosmo)/Hconf(1., fourpiG, cosmo)<<endl;
         //Note that source on Newtonian and GR are different: in Newtonian it is delta rho but in GR must be divided by dx^2 to get T_0^0
         // Modified_Gravity_Newtonian_nDGP_screened (source, source, cosmo.H0rc, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), fourpiG, cosmo.Omega_m, dx );
 

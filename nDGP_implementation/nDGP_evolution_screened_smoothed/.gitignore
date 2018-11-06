@@ -1,0 +1,9 @@
+*~
+manual.*
+!manual.pdf
+!manual.tex
+!manual.bib
+output/
+*.local
+gevolution
+
