@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#rm ./output/*
+rm ./output/*
 export PATH=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:/Applications/Xcode.app/Contents/Developer/usr/bin:$PATH
 
 make

@@ -202,17 +202,22 @@ int main(int argc, char **argv)
 
 	Field<Real> phi;
 	Field<Real> source;
+  Field<Real> delta_fR;
 	Field<Real> chi;
 	Field<Real> Sij;
 	Field<Real> Bi;
 	Field<Cplx> scalarFT;
+  Field<Cplx> deltaFT_f_R;
 	Field<Cplx> SijFT;
 	Field<Cplx> BiFT;
 	source.initialize(lat,1);
+  delta_fR.initialize(lat,1);
 	phi.initialize(lat,1);
 	chi.initialize(lat,1);
 	scalarFT.initialize(latFT,1);
+  deltaFT_f_R.initialize(latFT,1);
 	PlanFFT<Cplx> plan_source(&source, &scalarFT);
+  PlanFFT<Cplx> plan_delta_fR(&delta_fR, &deltaFT_f_R);
 	PlanFFT<Cplx> plan_phi(&phi, &scalarFT);
 	PlanFFT<Cplx> plan_chi(&chi, &scalarFT);
 	Sij.initialize(lat,3,3,symmetric);
@@ -524,25 +529,29 @@ int main(int argc, char **argv)
       }
       if (sim.f_R_flag==1)
       {
+        // delta_fR
         plan_source.execute(FFT_FORWARD);  // directly go to k-space to apply f(R) gravity
-        solveModifiedPoissonFT_fR(scalarFT, scalarFT, fourpiG / a, cosmo.fR0, a, Hconf(1., fourpiG, cosmo) , cosmo.Omega_m , cosmo.Omega_Lambda );
+        plan_delta_fR.execute(FFT_FORWARD);  // directly go to k-space to apply f(R) gravity
 
+        Modified_Gravity_f_R(deltaFT_f_R, scalarFT, fourpiG / a, cosmo.fR0, a, Hconf(1., fourpiG, cosmo) , cosmo.Omega_m , cosmo.Omega_Lambda ); // This function modify the density according to f(R) in Fourier space
+        plan_delta_fR.execute(FFT_BACKWARD);
+        // delta_fR.updateHalo();
         plan_source.execute(FFT_BACKWARD); // Going back to real space to apply the screening
+        //Since we go/back FT so we have to multiply to 1/(Npoints)^3
+
         //Since the Fourier modes and position on the lattice
         //are normalized to L(boxsize) in order to get dx=1, so to
         //make the smoothing function normalized we have to *sim.numpts/Boxsize
-        Screening_Chameleon(source, source, cosmo.fR0, cosmo.b, cosmo.zeta_h, cosmo.zeta_env, cosmo.alpha, cosmo.delta_h_vir,  a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), fourpiG, cosmo.Omega_m, dx, sim.numpts );
+        Screening_Chameleon(source, delta_fR, cosmo.fR0, cosmo.b, cosmo.zeta_h, cosmo.zeta_env, cosmo.alpha, cosmo.delta_c_vir,  a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), cosmo.Omega_m, cosmo.Omega_Lambda, sim.numpts );
 
-      plan_delta_smooth.execute(FFT_BACKWARD);
-      delta_smooth.updateHalo();
-      plan_source.execute(FFT_BACKWARD);
+        // We have to respect the normalization for going Forward-Backward to Fourier/real space, which is num_pts^3
       //Since we go/back FT so we have to multiply to 1/(Npoints)^3
-
-      // Modified_Gravity_Newtonian_nDGP(source, source, cosmo.H0rc, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), fourpiG );
       //Note that source on Newtonian and GR are different: in Newtonian it is delta rho but in GR must be divided by dx^2 to get T_0^0
-      Modified_Gravity_Newtonian_nDGP_screened (source, source, cosmo.fR0, cosmo.b, cosmo.zeta_h, cosmo.zeta_env, cosmo.alpha, cosmo.delta_h_vir,  a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), fourpiG, cosmo.Omega_m, dx, sim.numpts );
     }
-    plan_source.execute(FFT_FORWARD);  //directly go to k-spacae
+    plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-spacae
+
+    solveModifiedPoissonFT(scalarFT, scalarFT, fourpiG / a);  // Newton: phi update (k-space)
+    plan_phi.execute(FFT_BACKWARD);	 // go back to position space
 
 #ifdef BENCHMARK
 			ref2_time= MPI_Wtime();

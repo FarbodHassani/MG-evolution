@@ -521,50 +521,75 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 //
 //////////////////////////
 
-void solveModifiedPoissonFT_fR(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double fR0, const double a, const double H0 ,const double Omega_m , const double Omega_vacuum ,const Real modif = 0.)
+void Modified_Gravity_f_R(Field<Cplx> & source_fR_FT, Field<Cplx> & sourceFT, Real coeff, const double fR0, const double a, const double H0 ,const double Omega_m , const double Omega_vacuum )
 {
-	const int linesize = potFT.lattice().size(1);
-	int i;
+  const int linesize = sourceFT.lattice().size(1);
+  int i;
 	Real * gridk2;
 	Real * sinc;
-	rKSite k(potFT.lattice());
+  rKSite k(source_fR_FT.lattice());
   double R_bar = 3. *H0*H0*(Omega_m/a/a/a + 4.*Omega_vacuum);  //Ricci scalar Bg
   double R0_bar = 3. *H0*H0*(Omega_m + 4.*Omega_vacuum);  //Ricci scalar at z=0 Bg
   double f_R_coeff;
   double lambda_squared =  (-6. * fR0/(3.*H0*H0 * (Omega_m+4.*Omega_vacuum))) * pow((Omega_m+4.*Omega_vacuum)/(Omega_m/a/a/a + 4.*Omega_vacuum),3); //compton length and =1/mu
   double mu = sqrt(1./lambda_squared);
   double k2;
-  // double f_R_modif;
-  // f_R_modif
 
-	gridk2 = (Real *) malloc(linesize * sizeof(Real));
+  gridk2 = (Real *) malloc(linesize * sizeof(Real));
 
-	coeff /= -((long) linesize * (long) linesize * (long) linesize);
+  coeff /= -((long) linesize * (long) linesize * (long) linesize);
 
-	for (i = 0; i < linesize; i++)
-	{
-		gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
-		gridk2[i] *= gridk2[i];
-	}
-  
-	k.first();
-	if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
-	{
-		if (modif == 0.)
-			potFT(k) = Cplx(0.,0.);
-		else
-			potFT(k) = sourceFT(k) * coeff / modif;
-		k.next();
-	}
-
-	for (; k.test(); k.next())
-	{
+  for (i = 0; i < linesize; i++)
+  {
+    gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
+    gridk2[i] *= gridk2[i];
+  }
+  for (k.first(); k.test(); k.next())
+  {
     k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
     f_R_coeff = 4./3. - (1./3.)*(a*a*mu*mu)/(k2 + mu*mu*a*a);
-		potFT(k) = f_R_coeff * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
+		source_fR_FT(k) = f_R_coeff * sourceFT(k);
 	}
+  free(gridk2);
 
-	free(gridk2);
+}
+
+
+// Note that source(x) += (fourpiG * dx * dx / a) * T00_Kess(x)
+// To find T00 = source(x)/(fourpiG * dx * dx / a)
+template <class FieldType>
+void Screening_Chameleon(Field<FieldType> & source_screen, Field<FieldType> & source_fR, const double fR0, const double b, const double zeta_h, const double zeta_env,const double alpha, const double Delta_c_vir, const double a, const double H_conf , const double H0, const double Omega_m0, const double Omega_L0, double const num_pts)
+{
+  //Delta_c_vir is the constant for virial mass from rho_h=Delta_c bar{rho}_c
+	Site x(source_screen.lattice());
+  double p3, p4, p5, p6, p7,a_fR, coeff1, epsilon, coeff2, y_h, y_0;
+
+  p3 = (4.0-alpha)/(1.0-alpha);
+  a_fR = 7.0 * b/(b-1.0);
+  coeff1=pow (Omega_m0 + 4. * Omega_L0, 1./(1.-alpha) );
+  p4 = pow(Omega_m0,1./3.) * pow(coeff1  * b/(-3.0 * fR0), 1./p3);
+  p5 = -1.0;
+  p6 = 2.0/(3.0 * p3);
+  p7 = 3.0/(alpha - 4.0);
+  coeff2 = zeta_h * zeta_h * zeta_h * H_conf * H_conf * H0 * Delta_c_vir; // 2 G H_0 M_vir
+  epsilon = pow((zeta_env/zeta_h),3.*p7);
+  y_h = pow (Delta_c_vir * a * a * a/Omega_m0 , -1./3.);
+  y_0 = p4 * pow(a_fR,p5) * pow(coeff2,p6) * epsilon;
+	for (x.first(); x.test(); x.next())
+	{
+
+
+    //Since before then we go/back to Fourier space we have to respect normalization which is Npoint^3
+    source_fR(x)=source_fR(x)/(num_pts * num_pts * num_pts);
+    source_screen(x)=source_screen(x)/(num_pts * num_pts * num_pts);
+    // delta_m = (source_fR(x) - Omega_m0)/Omega_m0;
+
+    // According to the note we took B = \Delta G/G (f(R))
+		source_screen(x) = source_fR(x) * b * pow(y_h/y_0,a) *
+                         (pow(1.0 + pow((y_0/y_h),a) ,1.0/b) -1.0 ); // Modified Posson equation
+    //Source for Newtonian simulation is "\delta \rho"
+  }
+
 }
 
 
