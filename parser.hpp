@@ -1584,12 +1584,8 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		cosmo.fR0 = 0.;
   if (!parseParameter(params, numparam, "b", cosmo.b))
 		cosmo.b = 6.0;
-  if (!parseParameter(params, numparam, "zeta_env", cosmo.zeta_env))
-		cosmo.zeta_env = 5.0;
   if (!parseParameter(params, numparam, "alpha", cosmo.alpha))
     cosmo.alpha = 0.5;
-  if (!parseParameter(params, numparam, "delta_c_vir", cosmo.delta_c_vir))
-    cosmo.delta_c_vir = 200.0;
   if (!parseParameter(params, numparam, "zeta_h", cosmo.zeta_h))
     cosmo.zeta_h = 1.5;
   if (!parseParameter(params, numparam, "w0_fld", cosmo.w0_fld))
