@@ -505,89 +505,33 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 
 
 
-//////////////////////////
-// solveModifiedPoissonFT_f(R)
-//////////////////////////
-// Description:
-//   Modified Poisson solver using the standard Fourier method_f(R)
-//
-// Arguments:
-//   sourceFT   reference to the Fourier image of the source field
-//   potFT      reference to the Fourier image of the potential
-//   coeff      coefficient applied to the source ("4 pi G / a")
-//   modif      modification k^2 -> k^2 + modif (default 0 gives standard Poisson equation)
-//
-// Returns:
-//
-//////////////////////////
-
-void Modified_Gravity_f_R(Field<Cplx> & source_fR_FT, Field<Cplx> & sourceFT, Real coeff, const double fR0, const double a, const double H0 ,const double Omega_m , const double Omega_vacuum )
-{
-  const int linesize = sourceFT.lattice().size(1);
-  int i;
-	Real * gridk2;
-	Real * sinc;
-  rKSite k(source_fR_FT.lattice());
-  double R_bar = 3. *H0*H0*(Omega_m/a/a/a + 4.*Omega_vacuum);  //Ricci scalar Bg
-  double R0_bar = 3. *H0*H0*(Omega_m + 4.*Omega_vacuum);  //Ricci scalar at z=0 Bg
-  double f_R_coeff;
-  double lambda_squared =  (-6. * fR0/(3.*H0*H0 * (Omega_m+4.*Omega_vacuum))) * pow((Omega_m+4.*Omega_vacuum)/(Omega_m/a/a/a + 4.*Omega_vacuum),3); //compton length and =1/mu
-  double mu = sqrt(1./lambda_squared);
-  double k2;
-
-  gridk2 = (Real *) malloc(linesize * sizeof(Real));
-
-  coeff /= -((long) linesize * (long) linesize * (long) linesize);
-
-  for (i = 0; i < linesize; i++)
-  {
-    gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
-    gridk2[i] *= gridk2[i];
-  }
-  for (k.first(); k.test(); k.next())
-  {
-    k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
-    f_R_coeff = 4./3. - (1./3.)*(a*a*mu*mu)/(k2 + mu*mu*a*a);
-		source_fR_FT(k) = f_R_coeff * sourceFT(k);
-	}
-  free(gridk2);
-
-}
-
-
-// Note that source(x) += (fourpiG * dx * dx / a) * T00_Kess(x)
-// To find T00 = source(x)/(fourpiG * dx * dx / a)
+// Note that source(x) +=  * T00_Kess(x)
+// To find T00 = source(x), also background included
+// Note that rho(x) which also has background is T00 =source
 template <class FieldType>
-void Screening_Chameleon(Field<FieldType> & source_screen, Field<FieldType> & source_fR, const double fR0, const double b, const double zeta_h, const double zeta_env,const double alpha, const double Delta_c_vir, const double a, const double H_conf , const double H0, const double Omega_m0, const double Omega_L0, double const num_pts)
+void Yukawa_delta(Field<FieldType> & source_screen, Field<FieldType> & source,  Field<FieldType> & phi, const double fR0, const double r_th, const double alpha, const double a , const double H0, const double fourpig,  const double Omega_m0, const double Omega_L0)
 {
   //Delta_c_vir is the constant for virial mass from rho_h=Delta_c bar{rho}_c
 	Site x(source_screen.lattice());
-  double p3, p4, p5, p6, p7,a_fR, coeff1, epsilon, coeff2, y_h, y_0;
+  double coeff_0, C_1, C_2, raduis, delta_m, DeltaG_over_G;
+  coeff_0 = pow((Omega_m0 + 4. * Omega_L0 ) / (4. * Omega_L0),1.0/(1.0-alpha));
+  C_1 = (-fR0 ) * coeff_0 /(3. *  Omega_m0 * H0 * H0 * r_th * r_th * r_th ) ;
+  C_2 = Omega_m0 * r_th * r_th * r_th/(4.0 * Omega_L0);
 
-  p3 = (4.0-alpha)/(1.0-alpha);
-  a_fR = 7.0 * b/(b-1.0);
-  coeff1=pow (Omega_m0 + 4. * Omega_L0, 1./(1.-alpha) );
-  p4 = pow(Omega_m0,1./3.) * pow(coeff1  * b/(-3.0 * fR0), 1./p3);
-  p5 = -1.0;
-  p6 = 2.0/(3.0 * p3);
-  p7 = 3.0/(alpha - 4.0);
-  coeff2 = zeta_h * zeta_h * zeta_h * H_conf * H_conf * H0 * Delta_c_vir; // 2 G H_0 M_vir
-  epsilon = pow((zeta_env/zeta_h),3.*p7);
-  y_h = pow (Delta_c_vir * a * a * a/Omega_m0 , -1./3.);
-  y_0 = p4 * pow(a_fR,p5) * pow(coeff2,p6) * epsilon;
 	for (x.first(); x.test(); x.next())
 	{
-
-
-    //Since before then we go/back to Fourier space we have to respect normalization which is Npoint^3
-    source_fR(x)=source_fR(x)/(num_pts * num_pts * num_pts);
-    source_screen(x)=source_screen(x)/(num_pts * num_pts * num_pts);
-    // delta_m = (source_fR(x) - Omega_m0)/Omega_m0;
-
-    // According to the note we took B = \Delta G/G (f(R))
-		source_screen(x) = source_fR(x) * b * pow(y_h/y_0,a) *
-                         (pow(1.0 + pow((y_0/y_h),a) ,1.0/b) -1.0 ); // Modified Posson equation
+    delta_m = (source(x) - Omega_m0)/Omega_m0;
+    //C++ pow function solves in complex space, while we know it is not always necessary like pow(,1/3)
+    // if(delta_m/phi(x)>=0)
+    raduis = pow(2.0 *a*a*a * phi(x)/H0/Omega_m0/delta_m , 1/2);
+    // pi is included in the fourpiG
+    DeltaG_over_G = C_1 * C_2 /raduis/raduis/(1. - alpha);
+		source_screen(x) =  (1.0 + DeltaG_over_G) * source(x); // Modified Posson equation
     //Source for Newtonian simulation is "\delta \rho"
+    // if(x.coord(1)==14&&x.coord(2)==19)
+    // {
+    // cout<<" DeltaG_over_G: "<<delta_m<<" raduis  "<< theta_avg/delta_m  << "  pow: " <<pow(theta_avg/delta_m , 1.0/3.0)  <<endl;
+    // }
   }
 
 }
