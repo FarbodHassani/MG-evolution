@@ -250,11 +250,9 @@ struct cosmology
 	double w0_fld;
 	double cs2_fld;
   double fR0;
-  double b;
-  double zeta_h;
-  double zeta_env;
+  double theta_avg;
+  double r_th;
   double alpha;
-  double delta_c_vir;
 	double Omega_g;
 	double Omega_ur;
 	double Omega_rad;
