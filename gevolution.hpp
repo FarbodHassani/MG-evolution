@@ -521,75 +521,74 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 //
 //////////////////////////
 
-void Modified_Gravity_f_R(Field<Cplx> & source_fR_FT, Field<Cplx> & sourceFT, Real coeff, const double fR0, const double a, const double H0 ,const double Omega_m , const double Omega_vacuum )
+void solveModifiedPoissonFT_fR(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double fR0, const double a, const double H0 ,const double Omega_m , const double Omega_vacuum ,const double boxsize, const Real screening=1 , const Real modif = 0.)
 {
-  const int linesize = sourceFT.lattice().size(1);
-  int i;
+	const int linesize = potFT.lattice().size(1);
+	int i;
 	Real * gridk2;
 	Real * sinc;
-  rKSite k(source_fR_FT.lattice());
+	rKSite k(potFT.lattice());
+
+  // *****YUKAWA TERM***************
+  double twopi = 2.0 * 3.14159265359;
   double R_bar = 3. *H0*H0*(Omega_m/a/a/a + 4.*Omega_vacuum);  //Ricci scalar Bg
   double R0_bar = 3. *H0*H0*(Omega_m + 4.*Omega_vacuum);  //Ricci scalar at z=0 Bg
   double f_R_coeff;
   double lambda_squared =  (-6. * fR0/(3.*H0*H0 * (Omega_m+4.*Omega_vacuum))) * pow((Omega_m+4.*Omega_vacuum)/(Omega_m/a/a/a + 4.*Omega_vacuum),3); //compton length and =1/mu
   double mu = sqrt(1./lambda_squared);
-  double k2;
-
-  gridk2 = (Real *) malloc(linesize * sizeof(Real));
-
-  coeff /= -((long) linesize * (long) linesize * (long) linesize);
-
-  for (i = 0; i < linesize; i++)
-  {
-    gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
-    gridk2[i] *= gridk2[i];
-  }
-  for (k.first(); k.test(); k.next())
-  {
-    k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
-    f_R_coeff = 4./3. - (1./3.)*(a*a*mu*mu)/(k2 + mu*mu*a*a);
-		source_fR_FT(k) = f_R_coeff * sourceFT(k);
-	}
-  free(gridk2);
-
-}
+  // double coeff2 = pow ( (Omega_m/a/a/a + 4.*Omega_vacuum)/4.0/Omega_vacuum ,3);
+  // double n_fR = b/a_fR/(b-1.0);
+  double k2, pow_def, b, a_fR, alpha;
+  double kth, chameleon_term, C_cham, yh_over_y0,f_R_coeff,alpha;
+  kth=1.e2;
+  // *****FREE PARAMETERS***************
+  b     = 3.0;
+  alpha = 1./2.;
+  kth   = 1.e2;
 
 
-// Note that source(x) += (fourpiG * dx * dx / a) * T00_Kess(x)
-// To find T00 = source(x)/(fourpiG * dx * dx / a)
-template <class FieldType>
-void Screening_Chameleon(Field<FieldType> & source_screen, Field<FieldType> & source_fR, const double fR0, const double b, const double zeta_h, const double zeta_env,const double alpha, const double Delta_c_vir, const double a, const double H_conf , const double H0, const double Omega_m0, const double Omega_L0, double const num_pts)
-{
-  //Delta_c_vir is the constant for virial mass from rho_h=Delta_c bar{rho}_c
-	Site x(source_screen.lattice());
-  double p3, p4, p5, p6, p7,a_fR, coeff1, epsilon, coeff2, y_h, y_0;
+  a_fR= -2.*b/(b-1.0);
 
-  p3 = (4.0-alpha)/(1.0-alpha);
-  a_fR = 7.0 * b/(b-1.0);
-  coeff1=pow (Omega_m0 + 4. * Omega_L0, 1./(1.-alpha) );
-  p4 = pow(Omega_m0,1./3.) * pow(coeff1  * b/(-3.0 * fR0), 1./p3);
-  p5 = -1.0;
-  p6 = 2.0/(3.0 * p3);
-  p7 = 3.0/(alpha - 4.0);
-  coeff2 = zeta_h * zeta_h * zeta_h * H_conf * H_conf * H0 * Delta_c_vir; // 2 G H_0 M_vir
-  epsilon = pow((zeta_env/zeta_h),3.*p7);
-  y_h = pow (Delta_c_vir * a * a * a/Omega_m0 , -1./3.);
-  y_0 = p4 * pow(a_fR,p5) * pow(coeff2,p6) * epsilon;
-	for (x.first(); x.test(); x.next())
+
+	gridk2 = (Real *) malloc(linesize * sizeof(Real));
+	coeff /= -((long) linesize * (long) linesize * (long) linesize);
+
+	for (i = 0; i < linesize; i++)
 	{
+		gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
+		gridk2[i] *= gridk2[i];
+	}
 
+	k.first();
+	if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
+	{
+		if (modif == 0.)
+			potFT(k) = Cplx(0.,0.);
+		else
+			potFT(k) = sourceFT(k) * coeff / modif;
+		k.next();
+	}
 
-    //Since before then we go/back to Fourier space we have to respect normalization which is Npoint^3
-    source_fR(x)=source_fR(x)/(num_pts * num_pts * num_pts);
-    source_screen(x)=source_screen(x)/(num_pts * num_pts * num_pts);
-    // delta_m = (source_fR(x) - Omega_m0)/Omega_m0;
+	for (; k.test(); k.next())
+	{
+    k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
+    //Chameleon part
+    // yh_over_y0 = a * alpha *  pow(a/sqrt(k2/boxsize/boxsize), 1./7.) ;
+    yh_over_y0 = a * alpha *  pow(a/sqrt(k2/boxsize/boxsize), 1./7.) ;
 
-    // According to the note we took B = \Delta G/G (f(R))
-		source_screen(x) = source_fR(x) * b * pow(y_h/y_0,a) *
-                         (pow(1.0 + pow((y_0/y_h),a) ,1.0/b) -1.0 ); // Modified Posson equation
-    //Source for Newtonian simulation is "\delta \rho"
-  }
+    C_cham = pow(yh_over_y0, a_fR);
+    chameleon_term= C_cham  * ( pow(1+ 1./C_cham, 1./b) -1.);
+    f_R_coeff = 4./3. - (1./3.)*(a*a*mu*mu)/(k2 + mu*mu*a*a)
+    //////////////////////////////////////////
+    pow_def=pow( k2 * (pow(b,2.* n_fR))/(a*a*mu*mu) ,-a_fR/2.0);
+    // cout<<"pow_def" <<pow_def <<endl;
+    // f_R_coeff = 1.0 + (b/3.0) * pow_def * (pow(1.0 + 1.0/pow_def,1.0/b) -1.0) * std::min(1.0,chameleon_term);
+    f_R_coeff = 1.0 + (b/3.0) * pow_def * (pow(1.0 + 1.0/pow_def,1.0/b) -1.0) * chameleon_term;
+    // cout<<"k: "<< sqrt(gridk2[k.coord(0)])/boxsize<<" chameleon_term: "<<chameleon_term<<endl;
+		potFT(k) = f_R_coeff * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
+	}
 
+	free(gridk2);
 }
 
 
