@@ -528,27 +528,30 @@ void solveModifiedPoissonFT_fR(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real
 	Real * gridk2;
 	Real * sinc;
 	rKSite k(potFT.lattice());
+  double k2, pow_def, b, alpha;
+  double kth, chameleon_term, C_cham, yh_over_y0,f_R_coeff, Yukawa_param ;
+  // *****FREE PARAMETERS***************
+  b     = 2.1;
+  alpha = 10;
+  kth   = 0.1; //The scale denined for the y_h/y_0
 
   // *****YUKAWA TERM***************
   double twopi = 2.0 * 3.14159265359;
   double R_bar = 3. *H0*H0*(Omega_m/a/a/a + 4.*Omega_vacuum);  //Ricci scalar Bg
   double R0_bar = 3. *H0*H0*(Omega_m + 4.*Omega_vacuum);  //Ricci scalar at z=0 Bg
-  double f_R_coeff;
   double lambda_squared =  (-6. * fR0/(3.*H0*H0 * (Omega_m+4.*Omega_vacuum))) * pow((Omega_m+4.*Omega_vacuum)/(Omega_m/a/a/a + 4.*Omega_vacuum),3); //compton length and =1/mu
   double mu = sqrt(1./lambda_squared);
   // double coeff2 = pow ( (Omega_m/a/a/a + 4.*Omega_vacuum)/4.0/Omega_vacuum ,3);
-  // double n_fR = b/a_fR/(b-1.0);
-  double k2, pow_def, b, a_fR, alpha;
-  double kth, chameleon_term, C_cham, yh_over_y0,f_R_coeff,alpha;
-  kth=1.e2;
-  // *****FREE PARAMETERS***************
-  b     = 3.0;
-  alpha = 1./2.;
-  kth   = 1.e2;
 
+  // Params:
+  double p3, p5, p6, p7, a_fR, n_fR;
+  a_fR = -2.*b/(b-1.0);
+  n_fR = b/a_fR/(b-1.0);
 
-  a_fR= -2.*b/(b-1.0);
-
+  p3 = (4.0 - alpha)/(1.0-alpha);
+  // p5 = -1.;
+  // p6 = 2.0/(3.0 * p3);
+  p7=  3.0/(4.0 -alpha);
 
 	gridk2 = (Real *) malloc(linesize * sizeof(Real));
 	coeff /= -((long) linesize * (long) linesize * (long) linesize);
@@ -574,16 +577,19 @@ void solveModifiedPoissonFT_fR(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real
     k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
     //Chameleon part
     // yh_over_y0 = a * alpha *  pow(a/sqrt(k2/boxsize/boxsize), 1./7.) ;
-    yh_over_y0 = a * alpha *  pow(a/sqrt(k2/boxsize/boxsize), 1./7.) ;
+    yh_over_y0 = a *  pow(a/sqrt(k2/boxsize/boxsize), p7+1.) * kth; //kth dimension is k2^p7+1
 
     C_cham = pow(yh_over_y0, a_fR);
     chameleon_term= C_cham  * ( pow(1+ 1./C_cham, 1./b) -1.);
-    f_R_coeff = 4./3. - (1./3.)*(a*a*mu*mu)/(k2 + mu*mu*a*a)
+    // f_R_coeff = 4./3. - (1./3.)*(a*a*mu*mu)/(k2 + mu*mu*a*a) //Yukawa
     //////////////////////////////////////////
-    pow_def=pow( k2 * (pow(b,2.* n_fR))/(a*a*mu*mu) ,-a_fR/2.0);
+    pow_def=pow( k2 * (pow(b,2.* n_fR))/(a*a*mu*mu) ,-a_fR/2.0); //Yukawa parametrization
     // cout<<"pow_def" <<pow_def <<endl;
     // f_R_coeff = 1.0 + (b/3.0) * pow_def * (pow(1.0 + 1.0/pow_def,1.0/b) -1.0) * std::min(1.0,chameleon_term);
-    f_R_coeff = 1.0 + (b/3.0) * pow_def * (pow(1.0 + 1.0/pow_def,1.0/b) -1.0) * chameleon_term;
+    Yukawa_param= (b/3.0) * pow_def * (pow(1.0 + 1.0/pow_def,1.0/b) -1.0);
+    f_R_coeff = 1.0 + Yukawa_param * (1.0 + screening * (-1.0 + chameleon_term) );
+    // f_R_coeff = 1.0 + Yukawa_param *  chameleon_term ;
+
     // cout<<"k: "<< sqrt(gridk2[k.coord(0)])/boxsize<<" chameleon_term: "<<chameleon_term<<endl;
 		potFT(k) = f_R_coeff * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
 	}
