@@ -4,9 +4,9 @@
 //
 // Parser for settings file
 //
-// Author: Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
+// Author: Farbod Hassani (University i Oslo & Université de Genève) and Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Last modified: June 2018
+// Last modified: April 2023
 //
 //////////////////////////
 
@@ -1112,7 +1112,6 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	for (i = 0; i < MAX_PCL_SPECIES; i++) sim.numpcl[i] = 0;
 	sim.vector_flag = VECTOR_PARABOLIC;
 	sim.gr_flag = 0;
-  sim.f_R_flag = 0;
 	sim.out_pk = 0;
 	sim.out_snapshot = 0;
 	sim.out_lightcone[0] = 0;
@@ -1459,21 +1458,6 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 				COUT << "              the velocities requires time derivatives of transfer functions. Call CLASS directly to avoid this issue." << endl;
 			}
 		}
-    if (par_string[0] == 'f' || par_string[0] == 'F')
-    {
-      COUT << " gravity theory set to: " << COLORTEXT_CYAN << "Newtonian-f(R)" << COLORTEXT_RESET << endl;
-      sim.gr_flag = 0;
-      sim.f_R_flag = 1;
-      if (ic.pkfile[0] == '\0' && ic.tkfile[0] != '\0'
-#ifdef ICGEN_PREVOLUTION
-        && ic.generator != ICGEN_PREVOLUTION
-#endif
-        )
-      {
-        COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": gauge transformation to N-body gauge can only be performed for the positions; the transformation for" << endl;
-        COUT << "              the velocities requires time derivatives of transfer functions. Call CLASS directly to avoid this issue." << endl;
-      }
-    }
 		else if (par_string[0] == 'G' || par_string[0] == 'g')
 		{
 			COUT << " gravity theory set to: " << COLORTEXT_CYAN << "General Relativity" << COLORTEXT_RESET << endl;
@@ -1580,10 +1564,8 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		cosmo.Omega_fld /= cosmo.h * cosmo.h;
 	else if (!parseParameter(params, numparam, "Omega_fld", cosmo.Omega_fld))
 		cosmo.Omega_fld = 0.;
-	if (!parseParameter(params, numparam, "fR0", cosmo.fR0))
-		cosmo.fR0 = 0.;
-  if (!parseParameter(params, numparam, "w0_fld", cosmo.w0_fld))
-  		cosmo.w0_fld = -1.;
+	if (!parseParameter(params, numparam, "w0_fld", cosmo.w0_fld))
+		cosmo.w0_fld = -1.;
 	if (!parseParameter(params, numparam, "cs2_fld", cosmo.cs2_fld))
 		cosmo.cs2_fld = 1.;
 
@@ -1592,6 +1574,110 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": w0_fld = -1 is singular, setting Omega_fld = 0." << endl;
 		cosmo.Omega_fld = 0.;
 	}
+
+// This code only performs for Newton flag at the moment!
+if (sim.gr_flag != 0)
+  {
+  COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": This code only performs for Newtonian gravity at the moment set gravity theory = Newton!" << endl;
+  parallel.abortForce();
+  }
+
+  if (parseParameter(params, numparam, "MG_Theory", par_string))
+  {
+    if (par_string[0] == 'G' || par_string[0] == 'g')
+      cosmo.MG_Theory=0; // Theory is GR
+    else if (par_string[0] == 'n' || par_string[0] == 'N')
+      cosmo.MG_Theory=1; // Theory is nDGP
+    else if (par_string[0] == 'f' || par_string[0] == 'F')
+      cosmo.MG_Theory=2; // Theory is f(R)
+    else if (par_string[0] == 'Q' || par_string[0] == 'q')
+      cosmo.MG_Theory=3; // Theory is QCG
+    else cosmo.MG_Theory=0; // The default is GR
+  }
+
+if (cosmo.MG_Theory==2) // If the theory is chosen to f(R)
+{
+  if (!parseParameter(params, numparam, "fR0", cosmo.fR0))
+    cosmo.fR0 = 0.;
+  if (!parseParameter(params, numparam, "b_cham", cosmo.b_cham))
+    cosmo.b_cham = 2.0;
+  if (!parseParameter(params, numparam, "k_env", cosmo.k_env))
+    cosmo.k_env = 0.5;
+  if (!parseParameter(params, numparam, "r_th", cosmo.r_th))
+    cosmo.r_th = 7.;
+  if (!parseParameter(params, numparam, "screening", cosmo.screening_fR))
+      cosmo.screening_fR = 1;
+}
+
+if (cosmo.MG_Theory==3) // If the theory is chosen to Cubic Galileon
+{
+  if (!parseParameter(params, numparam, "fR0", cosmo.fR0))
+    cosmo.fR0 = 0.;
+  if (!parseParameter(params, numparam, "b_cham", cosmo.b_cham))
+    cosmo.b_cham = 2.0;
+  if (!parseParameter(params, numparam, "k_env", cosmo.k_env))
+    cosmo.k_env = 0.5;
+  if (!parseParameter(params, numparam, "r_th", cosmo.r_th))
+    cosmo.r_th = 7.;
+  if (!parseParameter(params, numparam, "screening", cosmo.screening_fR))
+      cosmo.screening_fR = 1;
+}
+
+if (cosmo.MG_Theory==1) // If the theory is chosen nDGP
+{
+  if (!parseParameter(params, numparam, "H0r_c", cosmo.H0rc))
+  {
+    cosmo.H0rc = 0.5;
+  }
+
+  if (!parseParameter(params, numparam, "Screening", sim.Screening))
+  {
+    sim.Screening = 1;
+  }
+  if (!parseParameter(params, numparam, "Screening_method", sim.Screening_method))
+  {
+    sim.Screening_method = 1; // Fourier space screening
+  }
+  if (!parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+  {
+    cosmo.k_screen = 0.1;
+    cosmo.r_screen = 0.0;
+  }
+
+  if (sim.Screening_method == 0)
+  {
+  if (!parseParameter(params, numparam, "r_screen", cosmo.r_screen))
+  {
+    cosmo.r_screen = 1.0;
+  }
+  }
+ // ERORRS:
+ if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+   {
+   COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose both r_screen and k_screen" << endl;
+    parallel.abortForce();
+   }
+if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+  {
+  COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose both r_screen and k_screen" << endl;
+  parallel.abortForce();
+  }
+  if (sim.Screening_method == 0)
+    COUT<< COLORTEXT_YELLOW << " WARNING : "<<"The real space parametrisation does not perform well!"<<endl;
+
+  if ((sim.Screening_method == 0) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+  {
+    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant choose k_screen while real space screening is chosen!" << endl;
+    parallel.abortForce();
+  }
+
+  if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && ((parseParameter(params, numparam, "k_screen", cosmo.k_screen)) || (sim.Screening_method == 1) ))
+    {
+    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose r_screen when k_screen is chosen or when screening method = 1 (Fourier space)" << endl;
+    parallel.abortForce();
+    }
+
+}
 
 	if (parseParameter(params, numparam, "omega_b", cosmo.Omega_b))
 	{
@@ -1632,10 +1718,26 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	}
 	else
 	{
-		COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad << ", h = " << cosmo.h << endl;
+		// COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad << ", h = " << cosmo.h << endl;
 		cosmo.Omega_Lambda = 1. - cosmo.Omega_m - cosmo.Omega_rad - cosmo.Omega_fld;
+    if (cosmo.MG_Theory==0) // If the theory is chosen GR
+    {
+    COUT << COLORTEXT_BLUE << " Gravity Theory is set to = " << "GR - Newtonian"<<endl;
+    COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_Lambda= "<<cosmo.Omega_Lambda<<COLORTEXT_RESET<<endl;
+    }
+
+    else if (cosmo.MG_Theory==1) // If the theory is chosen nDGP
+    {
+    COUT << COLORTEXT_BLUE << " Gravity Theory is set to = " << "nDGP"<< ", H0r_c = " << cosmo.H0rc<< ", Screening = " <<sim.Screening<< " Screening_method(0 in real space, 1 in Fourier) = "<<sim.Screening_method <<", k_screen= "<<cosmo.k_screen<<", r_screen= "<< cosmo.r_screen <<endl;
+    COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_Lambda= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
 	}
 
+  else if (cosmo.MG_Theory==2)
+  {
+    COUT<< COLORTEXT_BLUE << " f(R) gravity requested the parameters are: f_R0 = " << cosmo.fR0 << ", b_chameleon= " << cosmo.b_cham << ", k_env= "<< cosmo.k_env << ", r_th= "<<cosmo.r_th  << COLORTEXT_RESET<< endl;
+    COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_Lambda= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
+  }
+}
 	if(!parseParameter(params, numparam, "switch delta_rad", sim.z_switch_deltarad))
 		sim.z_switch_deltarad = 0.;
 

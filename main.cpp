@@ -183,10 +183,7 @@ int main(int argc, char **argv)
 
 	h5filename.reserve(2*PARAM_MAX_LENGTH);
 	h5filename.assign(sim.output_path);
-  // string str_filename = "./output/deltaG_G";
-  // str_filename += ".h5";
-  // string str_filename2 = "./output/radius";
-  // str_filename2 += ".h5";
+
 
 	box[0] = sim.numpts;
 	box[1] = sim.numpts;
@@ -205,6 +202,8 @@ int main(int argc, char **argv)
 	double f_params[5];
 
 	Field<Real> phi;
+  Field<Real> density_smooth;
+  Field<Real> radius;
 	Field<Real> source;
 	Field<Real> chi;
 	Field<Real> Sij;
@@ -212,12 +211,20 @@ int main(int argc, char **argv)
 	Field<Cplx> scalarFT;
 	Field<Cplx> SijFT;
 	Field<Cplx> BiFT;
+  Field<Cplx> density_smooth_FT;
+  Field<Cplx>  radius_FT;
 	source.initialize(lat,1);
+  density_smooth.initialize(lat,1);
+  radius.initialize(lat,1);
 	phi.initialize(lat,1);
 	chi.initialize(lat,1);
 	scalarFT.initialize(latFT,1);
+  density_smooth_FT.initialize(latFT,1);
+  radius_FT.initialize(latFT,1);
 	PlanFFT<Cplx> plan_source(&source, &scalarFT);
 	PlanFFT<Cplx> plan_phi(&phi, &scalarFT);
+  PlanFFT<Cplx> plan_density_smooth(&density_smooth, &density_smooth_FT);
+  PlanFFT<Cplx> plan_radius(&radius, &radius_FT);
 	PlanFFT<Cplx> plan_chi(&chi, &scalarFT);
 	Sij.initialize(lat,3,3,symmetric);
 	SijFT.initialize(latFT,3,3,symmetric);
@@ -511,38 +518,59 @@ int main(int argc, char **argv)
 #endif
 			}
 		}
-		else
+		else //Newtonian simulations
 		{
 #ifdef BENCHMARK
 			ref2_time= MPI_Wtime();
 #endif
 #ifdef BENCHMARK
-			fft_time += MPI_Wtime() - ref2_time;
-			fft_count++;
+      fft_time += MPI_Wtime() - ref2_time;
+      fft_count++;
 #endif
-      if (sim.f_R_flag==0)
-      {
-        plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
-        solveModifiedPoissonFT(scalarFT, scalarFT, fourpiG / a);  // Newton: phi update (k-space)
-        plan_phi.execute(FFT_BACKWARD);	 // go back to position space
-      }
-      if (sim.f_R_flag==1)
-      {
-        plan_source.execute(FFT_FORWARD);  // directly go to k-space to apply f(R) gravity
-        solveModifiedPoissonFT_fR(scalarFT, scalarFT, fourpiG / a, cosmo.fR0, a, Hconf(1., fourpiG, cosmo) , cosmo.Omega_m , cosmo.Omega_Lambda,sim.boxsize );
-        plan_phi.execute(FFT_BACKWARD);	 // go back to position space
-
-        //Snapshot
-        // if (snapcount < sim.num_snapshot && 1. / a < sim.z_snapshot[snapcount] + 1.)
-        // {
-        // // density_smooth.saveHDF5_server_open(h5filename + filename + "_DeltaG_G");
-        // // density_smooth.saveHDF5(h5filename + filename + "_DeltaG_G");
-        // density_smooth.saveHDF5(str_filename);
-        // radius.saveHDF5(str_filename2);
-        //
-        // }
+if (cosmo.MG_Theory == 0)
+{
+  if (cycle == 0)
+    COUT << COLORTEXT_BLUE <<" Equations for GR - Newtonian are being solved!" << COLORTEXT_RESET<<endl;
+  plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
+  solveModifiedPoissonFT(scalarFT, scalarFT, fourpiG / a);  // Newton: phi update (k-space)
+}
+else if (cosmo.MG_Theory == 2) // f(R)
+{
+  if (cycle == 0)
+    COUT << COLORTEXT_BLUE <<" Equations for f(R) gravity are being solved!" << COLORTEXT_RESET<<endl;
+  plan_source.execute(FFT_FORWARD);  // directly go to k-space to apply f(R) gravity
+  solveModifiedPoissonFT_fR(scalarFT, scalarFT, fourpiG / a, cosmo.fR0, cosmo.b_cham, cosmo.k_env, cosmo.r_th, a, Hconf(1., fourpiG, cosmo) , cosmo.Omega_m , cosmo.Omega_Lambda, sim.boxsize,  cosmo.screening_fR);
+}
+ else if (cosmo.MG_Theory==1)  // nDGP
+{
+if (sim.Screening > 0 &&  sim.Screening_method == 0) // Real space screening
+    {
+      if (cycle == 0)
+        COUT << COLORTEXT_BLUE <<" Equations for nDGP for real space screening being solved!" << COLORTEXT_RESET <<endl;
+      Modified_Gravity_Newtonian_nDGP_screened (source, source, density_smooth, radius, cosmo.H0rc, cosmo.r_screen, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), fourpiG, cosmo.Omega_m, dx );
+      plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-spacae
+      solveModifiedPoissonFT(scalarFT, scalarFT, fourpiG / a);  // Newton: phi update (k-space)
+  }
+  if (sim.Screening == 0) // No screening
+    {
+      if (cycle == 0)
+        COUT << COLORTEXT_BLUE <<" Equations for nDGP with no screening being solved!" << COLORTEXT_RESET<<endl;
+      //Note that source on Newtonian and GR are different: in Newtonian it is delta rho but in GR must be divided by dx^2 to get T_0^0
+      Modified_Gravity_Newtonian_nDGP(source, source, density_smooth, radius, cosmo.H0rc, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), fourpiG, cosmo.Omega_m );
+      plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-spacae
+      solveModifiedPoissonFT(scalarFT, scalarFT, fourpiG / a);  // Newton: phi update (k-space)
     }
 
+  if (sim.Screening > 0 && sim.Screening_method == 1)
+      {
+        if (cycle == 0)
+          COUT << COLORTEXT_BLUE <<" Equations for nDGP with Fourier space screening being solved!" << COLORTEXT_RESET<<endl;
+
+          plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
+          solveModifiedPoissonFT_ndgp_param (scalarFT, scalarFT, density_smooth_FT, radius_FT, fourpiG / a, cosmo.k_screen, cosmo.H0rc, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), sim.boxsize);
+      }
+    }
+plan_phi.execute(FFT_BACKWARD);	 // go back to position space
 #ifdef BENCHMARK
 			ref2_time= MPI_Wtime();
 #endif
@@ -551,8 +579,7 @@ int main(int argc, char **argv)
 			fft_time += MPI_Wtime() - ref2_time;
 			fft_count++;
 #endif
-		}
-
+}
 		phi.updateHalo();  // communicate halo values
 
 		// record some background data

@@ -4,9 +4,9 @@
 //
 // Constants and metadata structures
 //
-// Author: Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
+// Author: Farbod Hassani (University i Oslo & Université de Genève) and Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Last modified: June 2018
+// Last modified: April 2023
 //
 //////////////////////////
 
@@ -127,6 +127,7 @@
 #define COLORTEXT_WHITE     "\033[37;1m"
 #define COLORTEXT_CYAN      "\033[36;1m"
 #define COLORTEXT_GREEN     "\033[32;1m"
+#define COLORTEXT_BLUE "\033[34;1m"
 #define COLORTEXT_RED       "\033[31;1m"
 #define COLORTEXT_YELLOW    "\033[33;1m"
 #define COLORTEXT_RESET     "\033[0m"
@@ -183,7 +184,6 @@ struct metadata
 	int tracer_factor[MAX_PCL_SPECIES];
 	int baryon_flag;
 	int gr_flag;
-  int f_R_flag;
 	int vector_flag;
 	int radiation_flag;
 	int fluid_flag;
@@ -199,6 +199,9 @@ struct metadata
 	double movelimit;
 	double steplimit;
 	double boxsize;
+  // NDGP part
+  int Screening;
+  int Screening_method;
 	double wallclocklimit;
 	double z_in;
 	double z_snapshot[MAX_OUTPUTS];
@@ -243,13 +246,24 @@ struct icsettings
 struct cosmology
 {
 	double Omega_cdm;
+  int MG_Theory; // 0 means LCDM, 1 ndGP, 2 f(R), 3 QCG
+  // NDGP part
+  double H0rc;
+  double k_screen;
+  double r_screen;
+  // f(R) parts
+  double fR0;
+  double b_cham;
+  double k_env;
+  double r_th;
+  int screening_fR; // screening = 1 or 0
+  //
 	double Omega_b;
 	double Omega_m;
 	double Omega_Lambda;
 	double Omega_fld;
 	double w0_fld;
 	double cs2_fld;
-  double fR0;
 	double Omega_g;
 	double Omega_ur;
 	double Omega_rad;
