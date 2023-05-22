@@ -134,10 +134,32 @@ double bg_ncdm(const double a, const cosmology cosmo)
 //
 //////////////////////////
 
+#ifdef HAVE_BG_CG // Cubic Galileon
+// Note: H0^2= 8piG/3
+double Hconf(const double a, const double fourpiG, const cosmology cosmo)
+{
+	return sqrt((fourpiG / 3.) * (((cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) / a)  + (cosmo.Omega_rad / a / a) + a * a * sqrt( pow( (cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) / a / a / a + (cosmo.Omega_rad / a / a / a / a), 2) + 4. * (1. - (cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) - cosmo.Omega_rad)) ));
+}
+double Hconf_prime(const double a, const double fourpiG, const cosmology cosmo)
+{
+  double term1, term2, term3, H_0_squared, Omega_m;
+  Omega_m = cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo);
+  term1 =  -(fourpiG / (6. * a * a)) * ( Omega_m * a + 2. * cosmo.Omega_rad);
+  term2 =  -(fourpiG / (6. * pow(a , 6))) * ( Omega_m * a + cosmo.Omega_rad) * (3. * Omega_m * a + 4. * cosmo.Omega_rad)/(sqrt(4. * (1. - Omega_m - cosmo.Omega_rad) + (Omega_m * a + cosmo.Omega_rad) * (Omega_m * a + cosmo.Omega_rad)/pow( a , 8) ));
+  term3 =  (fourpiG * a * a / 3.) * sqrt(4. * (1. - Omega_m - cosmo.Omega_rad) + (Omega_m * a + cosmo.Omega_rad) * (Omega_m * a + cosmo.Omega_rad)/pow( a , 8));
+	return term1 + term2 + term3;
+}
+
+#else // LCDM
 double Hconf(const double a, const double fourpiG, const cosmology cosmo)
 {
 	return sqrt((2. * fourpiG / 3.) * (((cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) / a) + (cosmo.Omega_Lambda * a * a) + (cosmo.Omega_rad / a / a) + (cosmo.Omega_fld / pow(a, 1. + 3. * cosmo.w0_fld))));
 }
+double Hconf_prime(const double a, const double fourpiG, const cosmology cosmo)
+{
+	return (2. * fourpiG / (6. * a * a)) * (  -(cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) * a + 2. * cosmo.Omega_Lambda * a *  a * a * a - 2. * cosmo.Omega_rad );
+}
+#endif
 
 
 double Omega_m(const double a, const cosmology cosmo) { return cosmo.Omega_m / (cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo) + cosmo.Omega_Lambda * a * a * a + cosmo.Omega_rad / a + cosmo.Omega_fld / pow(a, 3. * cosmo.w0_fld)); }
@@ -162,10 +184,7 @@ double Omega_Lambda(const double a, const cosmology cosmo) { return cosmo.Omega_
 //
 //////////////////////////
 // Hconf normalized to critial density so we have H0^2= 8piG/3
-double Hconf_prime(const double a, const double fourpiG, const cosmology cosmo)
-{
-	return (2. * fourpiG / (6. * a * a)) * (  -(cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) * a + 2. * cosmo.Omega_Lambda * a *  a * a * a - 2. * cosmo.Omega_rad );
-}
+
 
 //////////////////////////
 // rungekutta4bg

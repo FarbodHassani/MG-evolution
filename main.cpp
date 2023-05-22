@@ -150,9 +150,28 @@ int main(int argc, char **argv)
 #endif
 
 	COUT << COLORTEXT_WHITE << endl;
-	COUT << "  _   _      _         __ ,  _" << endl;
-	COUT << " (_| (-' \\/ (_) (_ (_| (  ( (_) /\\/	version 1.2 beta    running on " << n*m << " cores." << endl;
-	COUT << "  -'" << endl << COLORTEXT_RESET << endl;
+
+COUT <<COLORTEXT_BLUE<<endl;
+COUT <<"MMMMMMMM               MMMMMMMM        GGGGGGGGGGGGG"<< endl;
+COUT <<"M:::::::M             M:::::::M     GGG::::::::::::G"<< endl;
+COUT <<"M::::::::M           M::::::::M   GG:::::::::::::::G"<< endl;
+COUT <<"M:::::::::M         M:::::::::M  G:::::GGGGGGGG::::G"<< endl;
+COUT <<"M::::::::::M       M::::::::::M G:::::G       GGGGGG"<< endl;
+COUT <<"M:::::::::::M     M:::::::::::MG:::::G              "<< endl;
+COUT <<"M:::::::M::::M   M::::M:::::::MG:::::G              "<< endl;
+COUT <<"M::::::M M::::M M::::M M::::::MG:::::G    GGGGGGGGGG- evolution"<< endl;
+COUT <<"M::::::M  M::::M::::M  M::::::MG:::::G    G::::::::G"<< endl;
+COUT <<"M::::::M   M:::::::M   M::::::MG:::::G    GGGGG::::G"<< endl;
+COUT <<"M::::::M    M:::::M    M::::::MG:::::G        G::::G"<< endl;
+COUT <<"M::::::M     MMMMM     M::::::M G:::::G       G::::G"<< endl;
+COUT <<"M::::::M               M::::::M  G:::::GGGGGGGG::::G"<< endl;
+COUT <<"M::::::M               M::::::M   GG:::::::::::::::G"<< endl;
+COUT <<"M::::::M               M::::::M     GGG::::::GGG:::G"<< endl;
+COUT <<"MMMMMMMM               MMMMMMMM        GGGGGGGGGGGGG"<< endl;
+COUT << COLORTEXT_RESET << endl;
+
+
+COUT << "running on " << n*m << " cores." << endl;
 
 	if (settingsfile == NULL)
 	{
@@ -172,7 +191,8 @@ int main(int argc, char **argv)
 
 	sprintf(filename, "%s%s_settings_used.ini", sim.output_path, sim.basename_generic);
 	saveParameterFile(filename, params, numparam);
-
+  sprintf(filename, "%s%s_background.dat", sim.output_path, sim.basename_generic);
+  outfile = fopen(filename, "w");
 	free(params);
 
 #ifdef HAVE_CLASS
@@ -570,6 +590,15 @@ if (sim.Screening > 0 &&  sim.Screening_method == 0) // Real space screening
           solveModifiedPoissonFT_ndgp_param (scalarFT, scalarFT, density_smooth_FT, radius_FT, fourpiG / a, cosmo.k_screen, cosmo.H0rc, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), sim.boxsize);
       }
     }
+
+  else if (cosmo.MG_Theory == 3) // Cubic Galileon
+  {
+    if (cycle == 0)
+      COUT << COLORTEXT_BLUE <<" Equations for Cubic Galileon are being solved!" << COLORTEXT_RESET<<endl;
+    plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
+    solveModifiedPoissonFT_Cubic_Galileon(scalarFT, scalarFT, fourpiG / a, cosmo.k_s, cosmo.c3, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime(a, fourpiG, cosmo), sim.boxsize);
+  }
+
 plan_phi.execute(FFT_BACKWARD);	 // go back to position space
 #ifdef BENCHMARK
 			ref2_time= MPI_Wtime();

@@ -15,9 +15,9 @@
 // 3. Collection of projection methods for the construction of the
 //    stress-energy-tensor
 //
-// Author: Julian Adamek (Université de Genève & Observatoire de Paris)
+// Author: Farbod Hassani (Universitet i Oslo & Université de Genève) & Julian Adamek (Université de Genève & Observatoire de Paris)
 //
-// Last modified: December 2016
+// Last modified: May 2022
 //
 //////////////////////////
 
@@ -507,6 +507,85 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 
 
 //////////////////////////
+// solveModifiedPoissonFT_ Cubic Galileon
+//////////////////////////
+// Description:
+//   Modified Poisson solver using the standard Fourier method_f(R)
+//
+// Arguments:
+//   sourceFT   reference to the Fourier image of the source field
+//   potFT      reference to the Fourier image of the potential
+//   coeff      coefficient applied to the source ("4 pi G / a")
+//
+// Returns:
+//
+//////////////////////////
+
+void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double k_screen, const double c3, const double a, const double H_conf, const double H0, const double H_conf_prime, const double boxsize, const Real modif = 0.)
+{
+  const int linesize = potFT.lattice().size(1);
+  int i;
+  Real * gridk2;
+  Real * sinc;
+  rKSite k(potFT.lattice());
+  double k2;
+  double epsilon,  DeltaG_over_G_linear, DeltaG_over_G, CG_parametrized, k_gev, screen_term;
+  double M_cubed, c2, M_pl, beta1, beta2, fourpiG, kappa, phi_dot, phi_ddot, Hubble_phys, xi, H_phys_dot;
+  fourpiG = 3. * H0 * H0/2.;
+  M_pl = sqrt(1./(2.* fourpiG));
+  M_cubed = M_pl * H0 * H0;
+  kappa = 2.* fourpiG;
+  c2 = -1.;
+  xi = -1./(6. * c3);
+  Hubble_phys = H_conf/a;
+  H_phys_dot = (H_conf_prime - H_conf * H_conf)/a/a;
+  phi_dot = xi * M_pl * H0 * H0/Hubble_phys;
+  phi_ddot = -xi * M_pl * H0 * H0 * H_phys_dot/Hubble_phys/Hubble_phys;
+  beta1 = (1./(6. * c3)) * (-c2 - 4. * c3 * (phi_ddot + 2. * Hubble_phys * phi_dot) + 2. * kappa * c3 * c3 * pow(phi_dot,4)/M_cubed/M_cubed);
+  beta2 = 2. * M_cubed * M_pl * beta1/phi_dot/phi_dot;
+  DeltaG_over_G_linear = -2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
+
+  //#################
+
+  gridk2 = (Real *) malloc(linesize * sizeof(Real));
+  coeff /= -((long) linesize * (long) linesize * (long) linesize);
+
+  for (i = 0; i < linesize; i++)
+  {
+    gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
+    gridk2[i] *= gridk2[i];
+  }
+
+  k.first();
+  if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
+  {
+    if (modif == 0.)
+      potFT(k) = Cplx(0.,0.);
+    else
+      potFT(k) = sourceFT(k) * coeff / modif;
+    k.next();
+  }
+
+  for (; k.test(); k.next())
+  {
+    k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
+    k_gev = sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
+    epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen) ; //epsilon in according to our parametrization!
+    screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
+    //////////////////////////////////////////
+    DeltaG_over_G = DeltaG_over_G_linear * screen_term;
+    CG_parametrized = 1 +  DeltaG_over_G;
+    // density_smooth_FT (k) = DeltaG_over_G ;
+    // radi_field_FT (k) = k_gev/k_screen;
+    potFT(k) = CG_parametrized * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
+  }
+
+  free(gridk2);
+  }
+
+
+
+//////////////////////////
 // prepare_MG_Newtonian_source: DGP
 //////////////////////////
 // Description:
@@ -574,74 +653,74 @@ void Modified_Gravity_Newtonian_nDGP_screened(Field<FieldType> & source_mg, Fiel
 }
 
 
-//////////////////////////
-// solveModifiedPoissonFT_f(R)
-//////////////////////////
-// Description:
-//   Modified Poisson solver using the standard Fourier method_f(R)
-//
-// Arguments:
-//   sourceFT   reference to the Fourier image of the source field
-//   potFT      reference to the Fourier image of the potential
-//   coeff      coefficient applied to the source ("4 pi G / a")
-//   modif      modification k^2 -> k^2 + modif (default 0 gives standard Poisson equation)
-//
-// Returns:
-//
-//////////////////////////
+  //////////////////////////
+  // solveModifiedPoissonFT_f(R)
+  //////////////////////////
+  // Description:
+  //   Modified Poisson solver using the standard Fourier method_f(R)
+  //
+  // Arguments:
+  //   sourceFT   reference to the Fourier image of the source field
+  //   potFT      reference to the Fourier image of the potential
+  //   coeff      coefficient applied to the source ("4 pi G / a")
+  //   modif      modification k^2 -> k^2 + modif (default 0 gives standard Poisson equation)
+  //
+  // Returns:
+  //
+  //////////////////////////
 
-void solveModifiedPoissonFT_ndgp_param(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Field<Cplx> & density_smooth_FT , Field<Cplx> & radi_field_FT,  Real coeff, const double k_screen, const double H0rc, const double a, const double H_conf , const double H0, const double H_conf_prime, const double boxsize, const Real modif = 0.)
-{
-  const int linesize = potFT.lattice().size(1);
-  int i;
-  Real * gridk2;
-  Real * sinc;
-  rKSite k(potFT.lattice());
-  double k2;
-  double epsilon,  beta, DeltaG_over_G, ndgp_parametrized, k_gev, screen_term ;
-
-
-  //#################
-  beta  = 1. + (4./3./a) * (H_conf/H0) * H0rc * (1. + H_conf_prime/2./ (H_conf * H_conf) );
-
-  gridk2 = (Real *) malloc(linesize * sizeof(Real));
-  coeff /= -((long) linesize * (long) linesize * (long) linesize);
-
-  for (i = 0; i < linesize; i++)
+  void solveModifiedPoissonFT_ndgp_param(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Field<Cplx> & density_smooth_FT , Field<Cplx> & radi_field_FT,  Real coeff, const double k_screen, const double H0rc, const double a, const double H_conf , const double H0, const double H_conf_prime, const double boxsize, const Real modif = 0.)
   {
-    gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
-    gridk2[i] *= gridk2[i];
-  }
+    const int linesize = potFT.lattice().size(1);
+    int i;
+    Real * gridk2;
+    Real * sinc;
+    rKSite k(potFT.lattice());
+    double k2;
+    double epsilon,  beta, DeltaG_over_G, ndgp_parametrized, k_gev, screen_term ;
 
-  k.first();
-  if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
-  {
-    if (modif == 0.)
-      potFT(k) = Cplx(0.,0.);
-    else
-      potFT(k) = sourceFT(k) * coeff / modif;
-    k.next();
-  }
 
-  for (; k.test(); k.next())
-  {
-    k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
-    k_gev=sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
-    epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen) ; //epsilon in according to our parametrization!
-    screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
-    //////////////////////////////////////////
-    DeltaG_over_G = (2./3./beta) * screen_term;
-    // DeltaG_over_G = (1./3./beta); //* screen_term;
-    ndgp_parametrized= 1 +  DeltaG_over_G; //The whole background and screening effect
-    // cout<<"k: "<< sqrt(gridk2[k.coord(0)])/boxsize<<" chameleon_term: "<<chameleon_term<<endl;
-    density_smooth_FT (k) = DeltaG_over_G ;
-    radi_field_FT (k) = k_gev/k_screen;
+    //#################
+    beta  = 1. + (4./3./a) * (H_conf/H0) * H0rc * (1. + H_conf_prime/2./ (H_conf * H_conf) );
 
-    potFT(k) = ndgp_parametrized * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
-  }
+    gridk2 = (Real *) malloc(linesize * sizeof(Real));
+    coeff /= -((long) linesize * (long) linesize * (long) linesize);
 
-  free(gridk2);
-  }
+    for (i = 0; i < linesize; i++)
+    {
+      gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
+      gridk2[i] *= gridk2[i];
+    }
+
+    k.first();
+    if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
+    {
+      if (modif == 0.)
+        potFT(k) = Cplx(0.,0.);
+      else
+        potFT(k) = sourceFT(k) * coeff / modif;
+      k.next();
+    }
+
+    for (; k.test(); k.next())
+    {
+      k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
+      k_gev=sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
+      epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen) ; //epsilon in according to our parametrization!
+      screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
+      //////////////////////////////////////////
+      DeltaG_over_G = (2./3./beta) * screen_term;
+      // DeltaG_over_G = (1./3./beta); //* screen_term;
+      ndgp_parametrized= 1 +  DeltaG_over_G; //The whole background and screening effect
+      // cout<<"k: "<< sqrt(gridk2[k.coord(0)])/boxsize<<" chameleon_term: "<<chameleon_term<<endl;
+      density_smooth_FT (k) = DeltaG_over_G ;
+      radi_field_FT (k) = k_gev/k_screen;
+
+      potFT(k) = ndgp_parametrized * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
+    }
+
+    free(gridk2);
+    }
 
 
   //////////////////////////

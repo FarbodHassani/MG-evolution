@@ -257,6 +257,10 @@ struct cosmology
   double k_env;
   double r_th;
   int screening_fR; // screening = 1 or 0
+  // cubic Galileon part
+  double c3;
+  double k_s;
+
   //
 	double Omega_b;
 	double Omega_m;
