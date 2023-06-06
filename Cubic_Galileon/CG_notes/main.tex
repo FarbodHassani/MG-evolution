@@ -1,0 +1,78 @@
+\documentclass{article}
+
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{url}
+\usepackage{hyperref}
+
+
+\newcommand{\fh}[1]{\textcolor{blue}{#1}}
+\newcommand{\fhc}[1]{\textcolor{red}{[#1]}}
+\def\be{\begin{equation}}
+\def\ee{\end{equation}}
+
+
+\begin{document}
+\section{Linear }
+The effective gravitational potential in Cubic Galileon theory at linear regime reads as (Eq. 29 of \href{https://arxiv.org/abs/1306.3219}{1306.3219})
+\be
+G_{\mathrm{eff}}=G\left(1-\frac{2}{3} \frac{c_3 \dot{\varphi}^2}{M_{\mathrm{Pl}} \mathcal{M}^3 \beta_2}\right)
+\ee
+where $M_{\mathrm{Pl}}$ is the Planck mass, $\varphi$ is the Galileon scalar field and $\mathcal{M}^3 \equiv M_{\mathrm{Pl}} H_0^2$, $\beta_1$ and $\beta_2$ are,
+\begin{align*}
+\beta_1 &= \frac{1}{6 c_3}\left[-c_2 - \frac{4 c_3}{\mathcal{M}^3}(\ddot{\varphi}+2 H \dot{\varphi}) + 2 \frac{\kappa c_3^2}{\mathcal{M}^6} \dot{\varphi}^4\right], \\
+\beta_2 &= 2 \frac{\mathcal{M}^3 M_{\mathrm{Pl}}}{\dot{\varphi}^2} \beta_1. \\
+\kappa &= \frac{1}{M_{\mathrm{Pl}}^2} = 8 \pi G
+\end{align*}
+In our discussion we set $c_2 = -1$ (see discussion at page 5 of \href{https://arxiv.org/pdf/1709.09135.pdf}{1709.09135}). We also use the tracker solution,
+\be
+\xi \equiv \frac{\dot{\phi} H}{M_{\mathrm{Pl}} H_0^2}
+\ee
+where $\xi$ is a constant. Following the discussion which leads to E. 18 in \href{https://arxiv.org/pdf/1709.09135.pdf} {1709.09135} we can deduce that $\xi$ is a constant and can be obtained given $c_3$,
+\be
+\xi = -\frac{1}{6 c_3}
+\ee
+As a result we can write,
+\be
+\dot{\varphi} =   \frac{\xi M_{\mathrm{Pl}} H_0^2}{H} 
+\ee
+\be
+\ddot{\varphi} =  - \frac{\xi M_{\mathrm{Pl}} H_0^2 \dot{H}}{H^2} 
+\ee
+Note that $H = \frac{d a}{dt} = \mathcal{H}/a$, where $\mathcal{H}$ is the conformal Hubble factor. Following the discussion presented in \href{https://arxiv.org/pdf/1308.3699.pdf}{1308.3699} for the background tracker solution we can derive the Hubble expansion rate as a function of $a$ (Eq. 12 of \href{https://arxiv.org/pdf/1308.3699.pdf}{1308.3699})
+\begin{equation}
+\begin{aligned}
+\mathcal{H}^2 &= \frac{\mathcal{H}_0^2}{2}\left[\left(\Omega_{m0} a^{-1} + \Omega_{r0} a^{-2}\right) + a^2 \sqrt{\left(\Omega_{m0} a^{-3} + \Omega_{r0} a^{-4}\right)^2 + 4\left(1 - \Omega_{m0} - \Omega_{r0}\right)}\right].
+\end{aligned}
+\end{equation}
+Where $H_0^2 = \frac{8 \pi G}{3}$ in MG-evolution unit.Computing $\mathcal{H}'$ results in,
+\begin{equation}
+\begin{aligned}
+\mathcal{H}' = & -\frac{\mathcal{H}_0^2 (a \Omega_m + 2 \Omega_r)}{4 a^2} 
+ - \frac{\mathcal{H}_0^2(a \Omega_m + \Omega_r) (3 a \Omega_m + 4 \Omega_r)}{4 a^6 \sqrt{4 (1 - \Omega_m - \Omega_r) + \frac{(a \Omega_m + \Omega_r)^2}{a^8}}} \\
+& + \frac{\mathcal{H}_0^2 a^2}{2} \sqrt{4 (1 - \Omega_m - \Omega_r) + \frac{(a \Omega_m + \Omega_r)^2}{a^8}}
+\end{aligned}
+\end{equation}
+We also have,
+\be
+\dot{H} = \frac{\mathcal{H}' - \mathcal{H}^2}{a^2}
+\ee
+With all the previous expressions we can obtain the linear $\Delta G/G$ for the Cubic Galileon model. 
+\section{Screening}
+Following the discussion which leads to Eq. 21 of \href{https://arxiv.org/abs/1306.3219}{1306.3219} we can write,
+\be
+\frac{\Delta G}{G}|_{\rm tot} =  \frac{\Delta G}{G}|_{\rm linear}  \times \frac{\Delta G}{G}|_{\rm Vainshtein}
+\ee
+where $\frac{\Delta G}{G}|_{\rm linear}$  is obtained following the discussion in the previous section and  $\frac{\Delta G}{G}|_{\rm Vainshtein}$ can be written in Fourier space as \href{https://arxiv.org/pdf/2003.05927.pdf}{2003.05927},
+\be
+\frac{\Delta G}{G}|_{\rm Vainshtein} = \frac{\sqrt{1+ \epsilon}-1}{\epsilon}
+\ee
+where,
+ \be
+ \epsilon \equiv (\frac{r_V}{r})^3 \to (\frac{k_*}{k})^3
+ \ee
+where $r_V$ the Vainshtein radius and $k_*$ is the corresponding wavenumber in Fourier space. As a result we have two free parameters, namely $k_*$ in the screening and $c_3$ in the linear modification.
+
+
+\end{document}

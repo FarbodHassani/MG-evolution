@@ -1591,7 +1591,9 @@ if (sim.gr_flag != 0)
     else if (par_string[0] == 'f' || par_string[0] == 'F')
       cosmo.MG_Theory=2; // Theory is f(R)
     else if (par_string[0] == 'c' || par_string[0] == 'C')
-      cosmo.MG_Theory=3; // Theory is CG
+      cosmo.MG_Theory=3; // Theory is cubic Galileon
+    else if (par_string[0] == 'Q' || par_string[0] == 'q')
+      cosmo.MG_Theory=4; // Theory is QCDM
     else cosmo.MG_Theory=0; // The default is GR
   }
 
@@ -1624,12 +1626,27 @@ if (cosmo.MG_Theory==3) // If the theory is chosen to Cubic Galileon
     parallel.abortForce();
   #endif
 }
+
+if (cosmo.MG_Theory==4) // If the theory is chosen to QCDM model (bg like cubic Galileon while it sperturbations similar to GR)
+{
+  if (!parseParameter(params, numparam, "c3", cosmo.c3))
+  {
+    cosmo.c3 = 10.;
+  }
+  #ifndef HAVE_BG_CG
+    COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": QCDM has been requested while the code hasn't been compiled with HAVE_BG_CG, in the makefile add DGEVOLUTION  += -DHAVE_BG_CG" << endl;
+    parallel.abortForce();
+  #endif
+}
+
 #ifdef HAVE_BG_CG
-  if (cosmo.MG_Theory!=3)
+cout<<"cosmo.MG_Theory: "<<cosmo.MG_Theory<<endl;
+  if (cosmo.MG_Theory!=3 || cosmo.MG_Theory!=4)
     {
     COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has not been requested while the code has been compiled with HAVE_BG_CG" << endl;
     parallel.abortForce();
     }
+
 #endif
 
 if (cosmo.MG_Theory==1) // If the theory is chosen nDGP
@@ -1748,6 +1765,11 @@ if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParamet
   else if (cosmo.MG_Theory==3)
   {
     COUT<< COLORTEXT_BLUE << " Cubic Galileon requested the parameters are: c3 = "<<cosmo.c3<<", k_s = "<<cosmo.k_s<<" [h/Mpc]"<< COLORTEXT_RESET<< endl;
+    COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_galileon= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
+  }
+  else if (cosmo.MG_Theory==4)
+  {
+    COUT<< COLORTEXT_BLUE << " QCDM is requested, the parameters are: c3 = "<<cosmo.c3<< COLORTEXT_RESET<< endl;
     COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_galileon= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
   }
 }

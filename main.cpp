@@ -599,6 +599,14 @@ if (sim.Screening > 0 &&  sim.Screening_method == 0) // Real space screening
     solveModifiedPoissonFT_Cubic_Galileon(scalarFT, scalarFT, fourpiG / a, cosmo.k_s, cosmo.c3, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime(a, fourpiG, cosmo), sim.boxsize);
   }
 
+  else if (cosmo.MG_Theory == 4) // QCDM
+  {
+    if (cycle == 0)
+      COUT << COLORTEXT_BLUE <<" Equations for QCDM are being solved!" << COLORTEXT_RESET<<endl;
+    plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
+    solveModifiedPoissonFT(scalarFT, scalarFT, fourpiG / a);  // Newton: phi update (k-space)
+  }
+  
 plan_phi.execute(FFT_BACKWARD);	 // go back to position space
 #ifdef BENCHMARK
 			ref2_time= MPI_Wtime();
