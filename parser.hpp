@@ -1640,8 +1640,8 @@ if (cosmo.MG_Theory==4) // If the theory is chosen to QCDM model (bg like cubic 
 }
 
 #ifdef HAVE_BG_CG
-cout<<"cosmo.MG_Theory: "<<cosmo.MG_Theory<<endl;
-  if (cosmo.MG_Theory!=3 || cosmo.MG_Theory!=4)
+
+  if ( (cosmo.MG_Theory!=3) && (cosmo.MG_Theory!=4))
     {
     COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has not been requested while the code has been compiled with HAVE_BG_CG" << endl;
     parallel.abortForce();
