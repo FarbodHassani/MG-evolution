@@ -570,7 +570,7 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   {
     k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
     k_gev = sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
-    epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen) ; //epsilon in according to our parametrization!
+    epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen); //epsilon in according to our parametrization!
     screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
     //////////////////////////////////////////
     DeltaG_over_G = DeltaG_over_G_linear * screen_term;

@@ -1764,12 +1764,12 @@ if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParamet
   }
   else if (cosmo.MG_Theory==3)
   {
-    COUT<< COLORTEXT_BLUE << " Cubic Galileon requested the parameters are: c3 = "<<cosmo.c3<<", k_s = "<<cosmo.k_s<<" [h/Mpc]"<< COLORTEXT_RESET<< endl;
+    COUT<< COLORTEXT_BLUE << " Cubic Galileon requested the parameters are: c2 = -1, c3 = "<<cosmo.c3<<", k_s = "<<cosmo.k_s<<" [h/Mpc]"<< COLORTEXT_RESET<< endl;
     COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_galileon= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
   }
   else if (cosmo.MG_Theory==4)
   {
-    COUT<< COLORTEXT_BLUE << " QCDM is requested, the parameters are: c3 = "<<cosmo.c3<< COLORTEXT_RESET<< endl;
+    COUT<< COLORTEXT_BLUE << " QCDM is requested, the parameters are: c2 = -1, c3 = "<<cosmo.c3<< COLORTEXT_RESET<< endl;
     COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_galileon= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
   }
 }
