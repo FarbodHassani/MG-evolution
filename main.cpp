@@ -222,8 +222,8 @@ COUT << "running on " << n*m << " cores." << endl;
 	double f_params[5];
 
 	Field<Real> phi;
-  Field<Real> density_smooth;
-  Field<Real> radius;
+  	Field<Real> density_smooth;
+  	Field<Real> radius;
 	Field<Real> source;
 	Field<Real> chi;
 	Field<Real> Sij;
@@ -231,8 +231,8 @@ COUT << "running on " << n*m << " cores." << endl;
 	Field<Cplx> scalarFT;
 	Field<Cplx> SijFT;
 	Field<Cplx> BiFT;
-  Field<Cplx> density_smooth_FT;
-  Field<Cplx>  radius_FT;
+  	Field<Cplx> density_smooth_FT;
+  	Field<Cplx>  radius_FT;
 	source.initialize(lat,1);
   density_smooth.initialize(lat,1);
   radius.initialize(lat,1);
@@ -594,9 +594,9 @@ if (sim.Screening > 0 &&  sim.Screening_method == 0) // Real space screening
   else if (cosmo.MG_Theory == 3) // Cubic Galileon
   {
     if (cycle == 0)
-      COUT << COLORTEXT_BLUE <<" Equations for Cubic Galileon are being solved!" << COLORTEXT_RESET<<endl;
+    COUT << COLORTEXT_BLUE <<" Equations for Cubic Galileon are being solved!" << COLORTEXT_RESET<<endl;
     plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
-    solveModifiedPoissonFT_Cubic_Galileon(scalarFT, scalarFT, fourpiG / a, cosmo.k_s, cosmo.c3, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime(a, fourpiG, cosmo), sim.boxsize);
+    solveModifiedPoissonFT_Cubic_Galileon(scalarFT, scalarFT, fourpiG / a, cosmo.k_s, cosmo.c3, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime(a, fourpiG, cosmo), sim.boxsize, cosmo.DeltaG_over_G_linear);
   }
 
   else if (cosmo.MG_Theory == 4) // QCDM
@@ -631,9 +631,22 @@ plan_phi.execute(FFT_BACKWARD);	 // go back to position space
 			else
 			{
 				if (cycle == 0)
-					fprintf(outfile, "# background statistics\n# cycle   tau/boxsize    a             conformal H/H0  phi(k=0)       T00(k=0)\n");
+				{
+					if (cosmo.MG_Theory == 3)
+					fprintf(outfile, "# background statistics\n# cycle   tau/boxsize    a             conformal H/H0    DeltaG_eff/G    phi(k=0)      T00(k=0)\n");
+					else				
+					fprintf(outfile, "# background statistics\n# cycle   tau/boxsize    a             conformal H/H0      phi(k=0)      T00(k=0)\n");
+				}
+				if (cosmo.MG_Theory == 3)
+				{
+				fprintf(outfile, " %6d   %e   %e   %e   %e   %e\n", cycle, tau, a, Hconf(a, fourpiG, cosmo) / Hconf(1., fourpiG, cosmo), cosmo.DeltaG_over_G_linear, scalarFT(kFT).real(), T00hom);
+				fclose(outfile);
+				}
+				else
+				{
 				fprintf(outfile, " %6d   %e   %e   %e   %e   %e\n", cycle, tau, a, Hconf(a, fourpiG, cosmo) / Hconf(1., fourpiG, cosmo), scalarFT(kFT).real(), T00hom);
 				fclose(outfile);
+				}
 			}
 		}
 		// done recording background data

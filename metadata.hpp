@@ -245,7 +245,7 @@ struct icsettings
 
 struct cosmology
 {
-	double Omega_cdm;
+  double Omega_cdm;
   int MG_Theory; // 0 means LCDM, 1 ndGP, 2 f(R), 3 QCG
   // NDGP part
   double H0rc;
@@ -260,7 +260,7 @@ struct cosmology
   // cubic Galileon part
   double c3;
   double k_s;
-
+  double DeltaG_over_G_linear;
   //
 	double Omega_b;
 	double Omega_m;

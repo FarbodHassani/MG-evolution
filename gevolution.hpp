@@ -521,7 +521,7 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 //
 //////////////////////////
 
-void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double k_screen, const double c3, const double a, const double H_conf, const double H0, const double H_conf_prime, const double boxsize, const Real modif = 0.)
+void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double k_screen, const double c3, const double a, const double H_conf, const double H0, const double H_conf_prime, const double boxsize, double & DeltaG_over_G_linear, const Real modif = 0.)
 {
   const int linesize = potFT.lattice().size(1);
   int i;
@@ -529,21 +529,21 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   Real * sinc;
   rKSite k(potFT.lattice());
   double k2;
-  double epsilon,  DeltaG_over_G_linear, DeltaG_over_G, CG_parametrized, k_gev, screen_term;
+  double epsilon, DeltaG_over_G, CG_parametrized, k_gev, screen_term;
   double M_cubed, c2, M_pl, beta1, beta2, fourpiG, kappa, phi_dot, phi_ddot, Hubble_phys, xi, H_phys_dot;
   fourpiG = 3. * H0 * H0/2.;
   M_pl = sqrt(1./(2.* fourpiG));
   M_cubed = M_pl * H0 * H0;
   kappa = 2.* fourpiG;
   c2 = -1.;
-  xi = -1./(6. * c3);
+  xi = -c2/(6. * c3);
   Hubble_phys = H_conf/a;
   H_phys_dot = (H_conf_prime - H_conf * H_conf)/a/a;
   phi_dot = xi * M_pl * H0 * H0/Hubble_phys;
   phi_ddot = -xi * M_pl * H0 * H0 * H_phys_dot/Hubble_phys/Hubble_phys;
   beta1 = (1./(6. * c3)) * (-c2 - 4. * c3 * (phi_ddot + 2. * Hubble_phys * phi_dot) + 2. * kappa * c3 * c3 * pow(phi_dot,4)/M_cubed/M_cubed);
   beta2 = 2. * M_cubed * M_pl * beta1/phi_dot/phi_dot;
-  DeltaG_over_G_linear = -2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
+  DeltaG_over_G_linear = 2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
 
   //#################
 
