@@ -541,9 +541,9 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   H_phys_dot = (H_conf_prime - H_conf * H_conf)/a/a;
   phi_dot = xi * M_pl * H0 * H0/Hubble_phys;
   phi_ddot = -xi * M_pl * H0 * H0 * H_phys_dot/Hubble_phys/Hubble_phys;
-  beta1 = (1./(6. * c3)) * (-c2 - 4. * c3 * (phi_ddot + 2. * Hubble_phys * phi_dot) + 2. * kappa * c3 * c3 * pow(phi_dot,4)/M_cubed/M_cubed);
+  beta1 = (1./(6. * c3)) * (-c2 - 4. * c3 * (phi_ddot + 2. * Hubble_phys * phi_dot)/M_cubed + 2. * kappa * c3 * c3 * pow(phi_dot,4)/M_cubed/M_cubed);
   beta2 = 2. * M_cubed * M_pl * beta1/phi_dot/phi_dot;
-  DeltaG_over_G_linear = 2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
+  DeltaG_over_G_linear = - 2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
 
   //#################
 
