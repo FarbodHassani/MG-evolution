@@ -3,10 +3,9 @@
 //////////////////////////
 //
 // code components related to background evolution
+// Authors: Farbod Hassani (University of Oslo, University of Geneva) and Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Author: Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
-//
-// Last modified: June 2018
+// Last modified: March 10, 2024
 //
 //////////////////////////
 

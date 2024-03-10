@@ -1,0 +1,73 @@
+[37;1m
+[34;1m
+MMMMMMMM               MMMMMMMM        GGGGGGGGGGGGG
+M:::::::M             M:::::::M     GGG::::::::::::G
+M::::::::M           M::::::::M   GG:::::::::::::::G
+M:::::::::M         M:::::::::M  G:::::GGGGGGGG::::G
+M::::::::::M       M::::::::::M G:::::G       GGGGGG
+M:::::::::::M     M:::::::::::MG:::::G              
+M:::::::M::::M   M::::M:::::::MG:::::G              
+M::::::M M::::M M::::M M::::::MG:::::G    GGGGGGGGGG- evolution
+M::::::M  M::::M::::M  M::::::MG:::::G    G::::::::G
+M::::::M   M:::::::M   M::::::MG:::::G    GGGGG::::G
+M::::::M    M:::::M    M::::::MG:::::G        G::::G
+M::::::M     MMMMM     M::::::M G:::::G       G::::G
+M::::::M               M::::::M  G:::::GGGGGGGG::::G
+M::::::M               M::::::M   GG:::::::::::::::G
+M::::::M               M::::::M     GGG::::::GGG:::G
+MMMMMMMM               MMMMMMMM        GGGGGGGGGGGGG
+[0m
+running on 16 cores.
+ initializing...
+ baryon treatment set to: [36;1mblend[0m
+ vector method set to: [36;1mparabolic[0m
+ gravity theory set to: [36;1mNewtonian[0m
+[33;1m /!\ warning[0m: gauge transformation to N-body gauge can only be performed for the positions; the transformation for
+              the velocities requires time derivatives of transfer functions. Call CLASS directly to avoid this issue.
+[34;1m Gravity Theory is set to = GR - Newtonian
+ cosmological parameters are: Omega_m0 = 0.307202, Omega_rad0 = 5.34795e-05, Omega_g0 = 5.34795e-05, Omega_ur0 = 0, h = 0.68, Omega_Lambda= 0.692745[0m
+ parsing of settings file completed. 31 parameters found, 31 were used.
+Initialization of the particles: part_simple
+all particles have their mass set to: 1.83106e-08
+ 16777216 cdm particles initialized: maximum displacement = 0.114832 lattice units.
+[32;1m initialization complete.[0m BENCHMARK: 0:01:51.6
+
+[34;1m Equations for GR - Newtonian are being solved![0m
+ cycle 0, time integration information: max |v| = 0.000804359 (cdm Courant factor = 0.00439454), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 96.0787 (cycle 1), tau/boxsize = 0.964443
+ cycle 10, time integration information: max |v| = 0.000981586 (cdm Courant factor = 0.00655556), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 48.5169 (cycle 18), tau/boxsize = 1.40119
+ cycle 20, time integration information: max |v| = 0.00118769 (cdm Courant factor = 0.00968736), time step / Hubble time = 0.04
+ cycle 30, time integration information: max |v| = 0.00144117 (cdm Courant factor = 0.0143471), time step / Hubble time = 0.04
+ cycle 40, time integration information: max |v| = 0.0017564 (cdm Courant factor = 0.021331), time step / Hubble time = 0.04
+ cycle 50, time integration information: max |v| = 0.00213715 (cdm Courant factor = 0.0316487), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 9.99415 (cycle 56), tau/boxsize = 3.12255
+ cycle 60, time integration information: max |v| = 0.00256622 (cdm Courant factor = 0.0462998), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 5.835 (cycle 68), tau/boxsize = 3.99546
+ cycle 70, time integration information: max |v| = 0.00310704 (cdm Courant factor = 0.0681425), time step / Hubble time = 0.04
+ cycle 80, time integration information: max |v| = 0.00381215 (cdm Courant factor = 0.100927), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 1.97316 (cycle 89), tau/boxsize = 6.09554
+ cycle 90, time integration information: max |v| = 0.00495546 (cdm Courant factor = 0.155014), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 0.997627 (cycle 99), tau/boxsize = 7.37319
+ cycle 100, time integration information: max |v| = 0.00674773 (cdm Courant factor = 0.234865), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = 0.450867 (cycle 107), tau/boxsize = 8.46687
+matter-dark energy equality at z=0.286194
+ cycle 110, time integration information: max |v| = 0.00980182 (cdm Courant factor = 0.333522), time step / Hubble time = 0.04
+[36;1m writing power spectra[0m at z = -0.0302118 (cycle 117), tau/boxsize = 9.76313
+[32;1m simulation complete.[0m
+
+BENCHMARK
+total execution time  : 1:56:05.7
+total number of cycles: 117
+time consumption breakdown:
+initialization   : 0:01:51.6 ; 1.60322%.
+main loop        : 1:53:08.1 ; 97.4497%.
+----------- main loop: components -----------
+projections                : 0:06:50.4 ; 6.04696%.
+snapshot outputs           : 0:00:00.0 ; 2.72434e-06%.
+lightcone outputs          : 0:00:00.0 ; 2.3951e-06%.
+power spectra outputs      : 0:03:26.8 ; 3.04722%.
+update momenta (count: 117): 0:02:24.8 ; 2.13379%.
+move particles (count: 117): 0:04:00.7 ; 3.54648%.
+gravity solver             : 1:37:31.0 ; 86.1957%.
+-- thereof Fast Fourier Transforms (count: 1062): 1:15:14.3 ; 77.1538%.

@@ -6,9 +6,9 @@
 // generating the full phase space for relativistic particles
 // [see C.-P. Ma and E. Bertschinger, Astrophys. J. 429, 22 (1994)]
 //
-// Author: Julian Adamek (Université de Genève & Observatoire de Paris)
+// Author: Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Last modified: December 2016
+// Last modified: November 2019
 //
 //////////////////////////
 
@@ -59,12 +59,14 @@ using namespace LATfield2;
 //   plan_Bi        pointer to FFT planner
 //   plan_source    pointer to FFT planner
 //   plan_Sij       pointer to FFT planner
+//   params         pointer to array of precision settings for CLASS (can be NULL)
+//   numparam       number of precision settings for CLASS (can be 0)
 //
 // Returns:
 // 
 //////////////////////////
 
-void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, const double fourpiG, double & a, double & tau, double & dtau, double & dtau_old, Particles<part_simple,part_simple_info,part_simple_dataType> * pcls_cdm, Particles<part_simple,part_simple_info,part_simple_dataType> * pcls_b, Particles<part_simple,part_simple_info,part_simple_dataType> * pcls_ncdm, double * maxvel, Field<Real> * phi, Field<Real> * chi, Field<Real> * Bi, Field<Real> * source, Field<Real> * Sij, Field<Cplx> * scalarFT, Field<Cplx> * BiFT, Field<Cplx> * SijFT, PlanFFT<Cplx> * plan_phi, PlanFFT<Cplx> * plan_chi, PlanFFT<Cplx> * plan_Bi, PlanFFT<Cplx> * plan_source, PlanFFT<Cplx> * plan_Sij)
+void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, const double fourpiG, double & a, double & tau, double & dtau, double & dtau_old, Particles<part_simple,part_simple_info,part_simple_dataType> * pcls_cdm, Particles<part_simple,part_simple_info,part_simple_dataType> * pcls_b, Particles<part_simple,part_simple_info,part_simple_dataType> * pcls_ncdm, double * maxvel, Field<Real> * phi, Field<Real> * chi, Field<Real> * Bi, Field<Real> * source, Field<Real> * Sij, Field<Cplx> * scalarFT, Field<Cplx> * BiFT, Field<Cplx> * SijFT, PlanFFT<Cplx> * plan_phi, PlanFFT<Cplx> * plan_chi, PlanFFT<Cplx> * plan_Bi, PlanFFT<Cplx> * plan_source, PlanFFT<Cplx> * plan_Sij, parameter * params, int & numparam)
 {
 #ifdef HAVE_CLASS
 	int i, j, p;
@@ -106,8 +108,8 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
     long numpts3d = (long) sim.numpts * (long) sim.numpts * (long) sim.numpts;
 
   	background class_background;
+  	thermo class_thermo;
   	perturbs class_perturbs;
-  	spectra class_spectra;
 	
 	ic_fields[0] = phi;
 	ic_fields[1] = chi;
@@ -127,9 +129,9 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 
 	COUT << " initial particle horizon tau = " << tau * sim.numpts << " lattice units." << endl;
 
-	initializeCLASSstructures(sim, ic, cosmo, class_background, class_perturbs, class_spectra);
+	initializeCLASSstructures(sim, ic, cosmo, class_background, class_thermo, class_perturbs, params, numparam);
 
-	loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_d2, NULL, sim.boxsize, ic.z_ic, cosmo.h);
+	loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_d2, NULL, sim.boxsize, ic.z_ic, cosmo.h);
 
 	temp1 = (double *) malloc(tk_d1->size * sizeof(double));
 	temp2 = (double *) malloc(tk_d1->size * sizeof(double));
@@ -150,6 +152,8 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 
 	for (p = 0; p < cosmo.num_ncdm; p++)
 	{
+		if (ic.numtile[((sim.baryon_flag == 1) ? 2 : 1)+p] < 1) continue;
+
 		loadHomogeneousTemplate(ic.pclfile[((sim.baryon_flag == 1) ? 2 : 1)+p], sim.numpcl[((sim.baryon_flag == 1) ? 2 : 1)+p], pcldata);
 	
 		if (pcldata == NULL)
@@ -159,7 +163,7 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		}
 		
 		sprintf(ncdm_name, "ncdm[%d]", p);
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, ncdm_name, sim.boxsize, ic.z_ic, cosmo.h);
+		loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_t1, ncdm_name, sim.boxsize, ic.z_ic, cosmo.h);
 	
 		if (tk_d1 == NULL || tk_t1 == NULL)
 		{
@@ -257,7 +261,7 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 	
 				plan_source->execute(FFT_FORWARD);
 
-				loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_d2, NULL, sim.boxsize, (1. / a) - 1., cosmo.h);
+				loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_d2, NULL, sim.boxsize, (1. / a) - 1., cosmo.h);
 
 				for (i = 0; i < tk_d1->size; i++)
 					temp1[i] = -tk_d1->y[i] * M_PI * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic) / tk_d1->x[i]) / tk_d1->x[i];
@@ -267,11 +271,11 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 				gsl_spline_free(tk_d1);
 				gsl_spline_free(tk_d2);
 
-				loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, "cdm", sim.boxsize, (1. / a) - 1., cosmo.h);
+				loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_t1, "cdm", sim.boxsize, (1. / a) - 1., cosmo.h);
 		
 				if (sim.baryon_flag > 0)
 				{
-					loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d2, tk_t2, "b", sim.boxsize, (1. / a) - 1., cosmo.h);
+					loadTransferFunctions(class_background, class_perturbs, tk_d2, tk_t2, "b", sim.boxsize, (1. / a) - 1., cosmo.h);
 
 					if (tk_d2->size != tk_d1->size)
 					{
@@ -475,7 +479,10 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 					chi->updateHalo();
 
 					for (p = 0; p < cosmo.num_ncdm; p++)
-		        		maxvel[1+sim.baryon_flag+p] = pcls_ncdm[p].updateVel(update_q, dtau_old / 2., ic_fields, 2, &a);
+					{
+						if (ic.numtile[1+sim.baryon_flag+p] < 1) maxvel[1+sim.baryon_flag+p] = 0;
+						else maxvel[1+sim.baryon_flag+p] = pcls_ncdm[p].updateVel(update_q, dtau_old / 2., ic_fields, 2, &a);
+					}
 
 					dtau_old = 0.;
 					break;
@@ -487,7 +494,7 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 
 			if (cosmo.Omega_g > 0)
 			{
-				loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, "g", sim.boxsize, ic.z_ic, cosmo.h);
+				loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_t1, "g", sim.boxsize, ic.z_ic, cosmo.h);
 
 				for (i = 0; i < tk_d1->size; i++)
 					temp1[i] -= tk_d1->y[i] * cosmo.Omega_g * M_PI * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic) / tk_d1->x[i]) / tk_d1->x[i] / a;
@@ -498,7 +505,7 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 
 			if (cosmo.Omega_ur > 0)
 			{
-				loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, "ur", sim.boxsize, ic.z_ic, cosmo.h);
+				loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_t1, "ur", sim.boxsize, ic.z_ic, cosmo.h);
 
 				for (i = 0; i < tk_d1->size; i++)
 					temp1[i] -= tk_d1->y[i] * cosmo.Omega_ur * M_PI * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic) / tk_d1->x[i]) / tk_d1->x[i] / a;
@@ -510,7 +517,7 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 			for (p = 0; p < cosmo.num_ncdm; p++)
 			{
 				sprintf(ncdm_name, "ncdm[%d]", p);
-				loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, ncdm_name, sim.boxsize, ic.z_ic, cosmo.h);
+				loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_t1, ncdm_name, sim.boxsize, ic.z_ic, cosmo.h);
 
 				rescale = bg_ncdm(a, cosmo, p);
 
@@ -533,20 +540,20 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 			projection_init(source);
 			if (cosmo.num_ncdm > 0 || cosmo.Omega_rad > 0)
 				plan_source->execute(FFT_BACKWARD);
-	        projection_T00_project(pcls_cdm, source, a, phi);
+	        	projection_T00_project(pcls_cdm, source, a, phi);
 			if (sim.baryon_flag)
 				projection_T00_project(pcls_b, source, a, phi);
-	        projection_T00_comm(source);
+			projection_T00_comm(source);
 	        
 	        prepareFTsource<Real>(*phi, *chi, *source, cosmo.Omega_cdm + cosmo.Omega_b, *source, 3. * Hconf(a, fourpiG, cosmo) * dx * dx / dtau_old, fourpiG * dx * dx / a, 3. * Hconf(a, fourpiG, cosmo) * Hconf(a, fourpiG, cosmo) * dx * dx);
 	        plan_source->execute(FFT_FORWARD);
 	        solveModifiedPoissonFT(*scalarFT, *scalarFT, 1. / (dx * dx), 3. * Hconf(a, fourpiG, cosmo) / dtau_old);
 	        plan_chi->execute(FFT_BACKWARD);     // nonlinear phi temporarily stored in chi
             
-            relax_cycles++;
+			relax_cycles++;
 	    }
 
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_d2, NULL, sim.boxsize, (1. / a) - 1., cosmo.h);
+		loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_d2, NULL, sim.boxsize, (1. / a) - 1., cosmo.h);
 
 		for (i = 0; i < tk_d1->size; i++)
 		{
@@ -624,7 +631,10 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		}
 
 	    for (p = 0; p < cosmo.num_ncdm; p++)
-	        maxvel[((sim.baryon_flag == 1) ? 2 : 1)+p] = pcls_ncdm[p].updateVel(update_q, (dtau + dtau_old) / 2., ic_fields, 2, &a);
+		{
+			if (ic.numtile[((sim.baryon_flag == 1) ? 2 : 1)+p] < 1)	maxvel[((sim.baryon_flag == 1) ? 2 : 1)+p] = 0;
+			else maxvel[((sim.baryon_flag == 1) ? 2 : 1)+p] = pcls_ncdm[p].updateVel(update_q, (dtau + dtau_old) / 2., ic_fields, 2, &a);
+		}
 
 		rungekutta4bg(a, fourpiG, cosmo, 0.5 * dtau);
 
@@ -636,7 +646,10 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		}
 
 	    for (p = 0; p < cosmo.num_ncdm; p++)
-	        pcls_ncdm[p].moveParticles(update_pos, dtau, ic_fields, 2, &a);
+		{
+			if (ic.numtile[((sim.baryon_flag == 1) ? 2 : 1)+p] < 1) continue;
+		        pcls_ncdm[p].moveParticles(update_pos, dtau, ic_fields, 2, &a);
+		}
 
 		rungekutta4bg(a, fourpiG, cosmo, 0.5 * dtau);
 	    tau += dtau;
@@ -655,37 +668,13 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 	while (1. / a > sim.z_in + 1. || relax_cycles == 0);
 
 	COUT << " needed " << cycle << " steps and " << relax_cycles << " nonlinear relaxation operations." << endl;
-
-#ifdef MULTISTEP_PROJECTION
-	for (p = 0; p < cosmo.num_ncdm; p++)
-	{
-		sprintf(ncdm_name, "ncdm[%d]", p);
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, ncdm_name, sim.boxsize, ic.z_ic, cosmo.h);
-
-		rescale = bg_ncdm(a, cosmo, p);
-
-		if (p == 0)
-		{
-			for (i = 0; i < tk_d1->size; i++)
-				temp2[i] = -tk_d1->y[i] * rescale * M_PI * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic) / tk_d1->x[i])  / tk_d1->x[i];
-		}
-		else
-		{
-			for (i = 0; i < tk_d1->size; i++)
-				temp2[i] += -tk_d1->y[i] * rescale * M_PI * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic)  / tk_d1->x[i])  / tk_d1->x[i];
-		}
-
-		gsl_spline_free(tk_d1);
-		gsl_spline_free(tk_t1);
-	}
-#endif
 	
 	if (sim.gr_flag == 0)
 	{
 		COUT << " gravity theory = Newton: computing gauge transformation..." << endl;
 
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d1, tk_t1, "tot", sim.boxsize, (1. / a) - 1., cosmo.h);
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d2, tk_t2, NULL, sim.boxsize, (1. / a) - 1., cosmo.h);
+		loadTransferFunctions(class_background, class_perturbs, tk_d1, tk_t1, "tot", sim.boxsize, (1. / a) - 1., cosmo.h);
+		loadTransferFunctions(class_background, class_perturbs, tk_d2, tk_t2, NULL, sim.boxsize, (1. / a) - 1., cosmo.h);
 
 		for (i = 0; i < tk_d2->size; i++)
 			temp1[i] = -tk_d2->y[i] * M_PI * sqrt(Pk_primordial(tk_d2->x[i] * cosmo.h / sim.boxsize, ic) / tk_d2->x[i]) / tk_d2->x[i];
@@ -699,15 +688,6 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 
 		for (i = 0; i < tk_d1->size; i++)
 			temp1[i] = 3. * phispline->y[i] - rescale * tk_t1->y[i] * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic) / tk_d1->x[i]) / tk_d1->x[i] / tk_d1->x[i] / tk_d1->x[i];
-
-#ifdef MULTISTEP_PROJECTION
-		if (cosmo.num_ncdm > 0)
-		{
-			rescale *= bg_ncdm(a, cosmo);
-			for (i = 0; i < tk_d1->size; i++)
-				temp2[i] -= rescale * tk_t1->y[i] * sqrt(Pk_primordial(tk_d1->x[i] * cosmo.h / sim.boxsize, ic) / tk_d1->x[i]) / tk_d1->x[i] / tk_d1->x[i] / tk_d1->x[i];
-		}
-#endif
 
 		gsl_spline_free(tk_d1);
 		gsl_spline_free(tk_t1);
@@ -755,11 +735,12 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		}
 		for (p = 0; p < cosmo.num_ncdm; p++)
 		{
+			if (ic.numtile[((sim.baryon_flag == 1) ? 2 : 1)+p] < 1) continue;
 			pcls_ncdm[p].moveParticles(displace_pcls_ic_basic, 1., &source, 1, NULL, &max_displacement, &i, 1);
 			COUT << " Poisson gauge -> N-body gauge, ncdm species " << p+1 << " maximum displacement = " << max_displacement * sim.numpts << " lattice units." << endl;
 		}
 
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d2, tk_t2, NULL, sim.boxsize, (1. / (0.99 * a)) - 1., cosmo.h);
+		loadTransferFunctions(class_background, class_perturbs, tk_d2, tk_t2, NULL, sim.boxsize, (1. / (0.99 * a)) - 1., cosmo.h);
 
 		for (i = 0; i < tk_d2->size; i++)
 			temp1[i] = -tk_d2->y[i] * M_PI * sqrt(Pk_primordial(tk_d2->x[i] * cosmo.h / sim.boxsize, ic) / tk_d2->x[i]) / tk_d2->x[i];
@@ -768,7 +749,7 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		gsl_spline_free(tk_d2);
 		gsl_spline_free(tk_t2);
 
-		loadTransferFunctions(class_background, class_perturbs, class_spectra, tk_d2, tk_t2, "tot", sim.boxsize, (1. / (0.99 * a)) - 1., cosmo.h);
+		loadTransferFunctions(class_background, class_perturbs, tk_d2, tk_t2, "tot", sim.boxsize, (1. / (0.99 * a)) - 1., cosmo.h);
 
 		rescale = 3. * Hconf(0.99 * a, fourpiG, cosmo) * M_PI;
 		mean_q = -99.5 * Hconf(0.995 * a, fourpiG, cosmo);
@@ -800,6 +781,11 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		}
 		for (p = 0; p < cosmo.num_ncdm; p++)
 		{
+			if (ic.numtile[((sim.baryon_flag == 1) ? 2 : 1)+p] < 1)
+			{
+				maxvel[p+1+sim.baryon_flag] = 0;
+				continue;
+			}
 			COUT << " Poisson gauge -> N-body gauge, ncdm species " << p+1 << " maximum velocity: " << maxvel[p+1+sim.baryon_flag] << " -> ";
 			maxvel[p+1+sim.baryon_flag] = pcls_ncdm[p].updateVel(update_q_Newton, 1., &source, 1, &a);
 			COUT << maxvel[p+1+sim.baryon_flag] << endl;
@@ -808,7 +794,10 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		projection_init(source);
 		scalarProjectionCIC_project(pcls_cdm, source);
 		for (p = 0; p < cosmo.num_ncdm; p++)
+		{
+			if (ic.numtile[((sim.baryon_flag == 1) ? 2 : 1)+p] < 1) continue;
 			scalarProjectionCIC_project(pcls_ncdm+p, source);
+		}
 		projection_T00_comm(source);
 		plan_source->execute(FFT_FORWARD);
 		solveModifiedPoissonFT(*scalarFT, *scalarFT, fourpiG / a);
@@ -816,15 +805,16 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		phi->updateHalo();
 	}
 
-	if (spectra_free(&class_spectra) == _FAILURE_)
-	{
-		COUT << " error: calling spectra_free from CLASS library failed!" << endl << " following error message was passed: " << class_spectra.error_message << endl;
-		parallel.abortForce();
-	}
 
 	if (perturb_free(&class_perturbs) == _FAILURE_)
 	{
 		COUT << " error: calling perturb_free from CLASS library failed!" << endl << " following error message was passed: " << class_perturbs.error_message << endl;
+		parallel.abortForce();
+	}
+	
+	if (thermodynamics_free(&class_thermo) == _FAILURE_)
+	{
+		COUT << " error: calling thermodynamics_free from CLASS library failed!" << endl << " following error message was passed: " << class_thermo.error_message << endl;
 		parallel.abortForce();
 	}
 
@@ -833,85 +823,6 @@ void generateIC_prevolution(metadata & sim, icsettings & ic, cosmology & cosmo, 
 		COUT << " error: calling background_free from CLASS library failed!" << endl << " following error message was passed: " << class_background.error_message << endl;
 		parallel.abortForce();
 	}
-
-//  verification checks...
-#ifdef WRITE_INITIAL_SPECTRA
-	projection_init(source);
-	if (sim.gr_flag > 0)
-		projection_T00_project(pcls_cdm, source, a, phi);
-	else
-		scalarProjectionCIC_project(pcls_cdm, source);
-	projection_T00_comm(source);
-	plan_source->execute(FFT_FORWARD);
-	extractPowerSpectrum(*scalarFT, kbin, power, kscatter, pscatter, occupation, sim.numbins, true, KTYPE_LINEAR);
-	sprintf(filename, "%s%sIC_cdm.dat", sim.output_path, sim.basename_pk);
-	writePowerSpectrum(kbin, power, kscatter, pscatter, occupation, sim.numbins, sim.boxsize, (Real) numpts3d * (Real) numpts3d * 2. * M_PI * M_PI * (sim.baryon_flag ? (cosmo.Omega_cdm * cosmo.Omega_cdm) : ((cosmo.Omega_cdm + cosmo.Omega_b) * (cosmo.Omega_cdm + cosmo.Omega_b))), filename, "power spectrum of delta for cdm", a);
-
-	projection_init(Bi);
-	vectorProjectionCICNGP_project(pcls_cdm, Bi);
-	vectorProjectionCICNGP_comm(Bi);
-	Bi->updateHalo();
-
-	for (x.first(); x.test(); x.next())
-		(*source)(x) = (Real) sim.numpts * ((*Bi)(x, 0) + (*Bi)(x, 1) + (*Bi)(x, 2) - (*Bi)(x-0, 0) - (*Bi)(x-1, 1) - (*Bi)(x-2, 2)) / (*source)(x) / a;
-
-	plan_source->execute(FFT_FORWARD);
-	extractPowerSpectrum(*scalarFT, kbin, power, kscatter, pscatter, occupation, sim.numbins, true, KTYPE_LINEAR);
-	sprintf(filename, "%s%sIC_tcdm.dat", sim.output_path, sim.basename_pk);
-	writePowerSpectrum(kbin, power, kscatter, pscatter, occupation, sim.numbins, sim.boxsize, (Real) numpts3d * (Real) numpts3d * 2. * M_PI * M_PI * sim.boxsize * sim.boxsize / cosmo.h / cosmo.h, filename, "power spectrum of theta for cdm", a);
-
-	if (sim.baryon_flag > 0)
-	{
-		projection_init(source);
-		if (sim.gr_flag > 0)
-			projection_T00_project(pcls_b, source, a, phi);
-		else
-			scalarProjectionCIC_project(pcls_b, source);
-		projection_T00_comm(source);
-		plan_source->execute(FFT_FORWARD);
-		extractPowerSpectrum(*scalarFT, kbin, power, kscatter, pscatter, occupation, sim.numbins, true, KTYPE_LINEAR);
-		sprintf(filename, "%s%sIC_b.dat", sim.output_path, sim.basename_pk);
-		writePowerSpectrum(kbin, power, kscatter, pscatter, occupation, sim.numbins, sim.boxsize, (Real) numpts3d * (Real) numpts3d * 2. * M_PI * M_PI * cosmo.Omega_b * cosmo.Omega_b, filename, "power spectrum of delta for baryons", a);
-
-		projection_init(Bi);
-		vectorProjectionCICNGP_project(pcls_b, Bi);
-		vectorProjectionCICNGP_comm(Bi);
-		Bi->updateHalo();
-
-		for (x.first(); x.test(); x.next())
-			(*source)(x) = (Real) sim.numpts * ((*Bi)(x, 0) + (*Bi)(x, 1) + (*Bi)(x, 2) - (*Bi)(x-0, 0) - (*Bi)(x-1, 1) - (*Bi)(x-2, 2)) / (*source)(x) / a;
-
-		plan_source->execute(FFT_FORWARD);
-		extractPowerSpectrum(*scalarFT, kbin, power, kscatter, pscatter, occupation, sim.numbins, true, KTYPE_LINEAR);
-		sprintf(filename, "%s%sIC_tb.dat", sim.output_path, sim.basename_pk);
-		writePowerSpectrum(kbin, power, kscatter, pscatter, occupation, sim.numbins, sim.boxsize, (Real) numpts3d * (Real) numpts3d * 2. * M_PI * M_PI * sim.boxsize * sim.boxsize / cosmo.h / cosmo.h, filename, "power spectrum of theta for baryons", a);
-	}		
-#endif
-
-#ifdef MULTISTEP_PROJECTION
-	if (cosmo.num_ncdm > 0)
-	{
-		tk_d1 = gsl_spline_alloc(gsl_interp_cspline, phispline->size);
-		gsl_spline_init(tk_d1, phispline->x, temp2, phispline->size);
-
-		generateRealization(*scalarFT, 0., tk_d1, (unsigned int) ic.seed, ic.flags & ICFLAG_KSPHERE);
-		gsl_spline_free(tk_d1);
-
-		projection_init(source);
-		plan_source->execute(FFT_BACKWARD);
-
-		rescale = bg_ncdm(a, cosmo);
-		for (x.first(); x.test(); x.next())
-			(*source)(x) += rescale;
-
-		plan_source->execute(FFT_FORWARD);
-		extractPowerSpectrum(*scalarFT, kbin, power, kscatter, pscatter, occupation, sim.numbins, true, KTYPE_LINEAR);
-		sprintf(filename, "%s%sICinit_deltancdm.dat", sim.output_path, sim.basename_pk);
-		writePowerSpectrum(kbin, power, kscatter, pscatter, occupation, sim.numbins, sim.boxsize, (Real) numpts3d * (Real) numpts3d * 2. * M_PI * M_PI * bg_ncdm(a, cosmo) * bg_ncdm(a, cosmo), filename, "power spectrum of delta for total ncdm", a);
-	}
-	else
-		projection_init(source);
-#endif
 
 	gsl_spline_free(phispline);
 	gsl_spline_free(chispline);

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021) (preloaded format=pdflatex 2021.4.22)  15 NOV 2023 11:53
+This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021) (preloaded format=pdflatex 2021.4.22)  28 FEB 2024 14:50
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -689,7 +689,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 124--126
  []
 
 [3] [4]
-Overfull \hbox (24.84688pt too wide) detected at line 192
+Overfull \hbox (24.84688pt too wide) detected at line 193
 [][][]
  []
 
@@ -698,10 +698,10 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: 68DD8F2C29759C6583C5774F8A0C3395;1134.
  ) 
 Here is how much of TeX's memory you used:
- 20002 strings out of 478994
- 366910 string characters out of 5858184
- 650318 words of memory out of 5000000
- 37077 multiletter control sequences out of 15000+600000
+ 19993 strings out of 478994
+ 366715 string characters out of 5858184
+ 648171 words of memory out of 5000000
+ 37069 multiletter control sequences out of 15000+600000
  410985 words of font info for 57 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  128i,10n,130p,939b,958s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -718,10 +718,10 @@ xlive/2021/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/texli
 ve/2021/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texliv
 e/2021/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive/
 2021/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on main.pdf (6 pages, 167429 bytes).
+Output written on main.pdf (6 pages, 166613 bytes).
 PDF statistics:
- 204 PDF objects out of 1000 (max. 8388607)
- 165 compressed objects within 2 object streams
- 55 named destinations out of 1000 (max. 500000)
+ 202 PDF objects out of 1000 (max. 8388607)
+ 163 compressed objects within 2 object streams
+ 54 named destinations out of 1000 (max. 500000)
  165 words of extra memory for PDF output out of 10000 (max. 10000000)
 

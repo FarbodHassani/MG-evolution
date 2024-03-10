@@ -6,7 +6,7 @@
 //
 // Author: Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Last modified: June 2018
+// Last modified: April 2019
 //
 //////////////////////////
 
@@ -165,24 +165,49 @@ void extractCrossSpectrum(Field<Cplx> & fld1FT, Field<Cplx> & fld2FT, Real * kbi
 	
 	free(typek2);
 	free(sinc);
-	
-	parallel.sum<Real>(kbin, numbins);
-	parallel.sum<Real>(kscatter, numbins);
-	parallel.sum<Real>(power, numbins);
-	parallel.sum<Real>(pscatter, numbins);
-	parallel.sum<int>(occupation, numbins);
-	
-	for (i = 0; i < numbins; i++)
+
+	if (parallel.isRoot())
 	{
-		if (occupation[i] > 0)
+#ifdef SINGLE
+		MPI_Reduce(MPI_IN_PLACE, (void *) kbin, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce(MPI_IN_PLACE, (void *) kscatter, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce(MPI_IN_PLACE, (void *) power, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce(MPI_IN_PLACE, (void *) pscatter, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+#else
+		MPI_Reduce(MPI_IN_PLACE, (void *) kbin, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce(MPI_IN_PLACE, (void *) kscatter, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce(MPI_IN_PLACE, (void *) power, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce(MPI_IN_PLACE, (void *) pscatter, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+#endif
+		MPI_Reduce(MPI_IN_PLACE, (void *) occupation, numbins, MPI_INT, MPI_SUM, 0, parallel.lat_world_comm());
+
+		for (i = 0; i < numbins; i++)
 		{
-			kscatter[i] = sqrt(kscatter[i] * occupation[i] - kbin[i] * kbin[i]) / occupation[i];
-			if (!isfinite(kscatter[i])) kscatter[i] = 0.;
-			kbin[i] = kbin[i] / occupation[i];
-			power[i] /= occupation[i];
-			pscatter[i] = sqrt(pscatter[i] / occupation[i] - power[i] * power[i]);
-			if (!isfinite(pscatter[i])) pscatter[i] = 0.;
+			if (occupation[i] > 0)
+			{
+				kscatter[i] = sqrt(kscatter[i] * occupation[i] - kbin[i] * kbin[i]) / occupation[i];
+				if (!isfinite(kscatter[i])) kscatter[i] = 0.;
+				kbin[i] = kbin[i] / occupation[i];
+				power[i] /= occupation[i];
+				pscatter[i] = sqrt(pscatter[i] / occupation[i] - power[i] * power[i]);
+				if (!isfinite(pscatter[i])) pscatter[i] = 0.;
+			}
 		}
+	}
+	else
+	{
+#ifdef SINGLE
+		MPI_Reduce((void *) kbin, NULL, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce((void *) kscatter, NULL, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce((void *) power, NULL, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce((void *) pscatter, NULL, numbins, MPI_FLOAT, MPI_SUM, 0, parallel.lat_world_comm());
+#else
+		MPI_Reduce((void *) kbin, NULL, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce((void *) kscatter, NULL, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce((void *) power, NULL, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+		MPI_Reduce((void *) pscatter, NULL, numbins, MPI_DOUBLE, MPI_SUM, 0, parallel.lat_world_comm());
+#endif
+		MPI_Reduce((void *) occupation, NULL, numbins, MPI_INT, MPI_SUM, 0, parallel.lat_world_comm());
 	}
 }
 
@@ -405,34 +430,25 @@ void computeTensorDiagnostics(Field<Real> & hij, Real & mdivh, Real & mtraceh, R
 	parallel.max<Real>(mnormh);
 }
 
-bool pointInShell(double * pos, lightcone_geometry & lightcone, double & outer, double & inner, double * vertex = NULL)
-{
-	double d;
 
-	if (vertex == NULL)
-		vertex = lightcone.vertex;
-
-	d = sqrt((pos[0]-vertex[0])*(pos[0]-vertex[0]) + (pos[1]-vertex[1])*(pos[1]-vertex[1]) + (pos[2]-vertex[2])*(pos[2]-vertex[2]));
-
-	if (d < inner || d >= outer) return false;
-
-	if (lightcone.opening < M_PI)
-	{
-		if (acos(((pos[0]-vertex[0])*lightcone.direction[0] + (pos[1]-vertex[1])*lightcone.direction[1] + (pos[2]-vertex[2])*lightcone.direction[2]) / d) < lightcone.opening) return true;
-		else return false;
-	}
-	else return true;
-}
-
-bool pointInShell(float * pos, lightcone_geometry & lightcone, double & outer, double & inner, double * vertex = NULL)
-{
-        double p[3];
-
-        for (int i = 0; i < 3; i++)
-                p[i] = (double) pos[i];
-
-        return pointInShell(p, lightcone, outer, inner, vertex);
-}
+//////////////////////////
+// findIntersectingLightcones
+//////////////////////////
+// Description:
+//   determines periodic copies of light cone vertex for which the present
+//   look-back interval may overlap with a given spatial domain
+// 
+// Arguments:
+//   lightcone  reference to structure describing light cone geometry
+//   outer      outer (far) limit of look-back interval
+//   inner      inner (close) limit of look-back interval
+//   domain     array of domain boundaries
+//   vertex     will contain array of relevant vertex locations
+//
+// Returns:
+//   number of vertices found
+// 
+//////////////////////////
 
 int findIntersectingLightcones(lightcone_geometry & lightcone, double outer, double inner, double * domain, double vertex[MAX_INTERSECTS][3])
 {
@@ -601,16 +617,26 @@ int findIntersectingLightcones(lightcone_geometry & lightcone, double outer, dou
 				rdom = 0.5 * sqrt((domain[3]-domain[0])*(domain[3]-domain[0]) + (domain[4]-domain[1])*(domain[4]-domain[1]) + (domain[5]-domain[2])*(domain[5]-domain[2]));
 				dist = sqrt((0.5*domain[0]+0.5*domain[3]-vertex[n][0])*(0.5*domain[0]+0.5*domain[3]-vertex[n][0]) + (0.5*domain[1]+0.5*domain[4]-vertex[n][1])*(0.5*domain[1]+0.5*domain[4]-vertex[n][1]) + (0.5*domain[2]+0.5*domain[5]-vertex[n][2])*(0.5*domain[2]+0.5*domain[5]-vertex[n][2]));
 
-				if (dist + outer <= rdom) // outer sphere lies within domain enclosing sphere
+				if (dist <= rdom) // vertex lies within domain enclosing sphere
 				{
-					//cout << "proc#" << parallel.rank() << ": case 1, dist = " << dist << ", outer = " << outer << ", rdom = " << rdom << "; vertex = (" << vertex[n][0] << ", " << vertex[n][1] << ", " << vertex[n][2] << ")" << endl;
 					n++;
 					continue;
 				}
 
-				if (acos(((0.5*domain[0]+0.5*domain[3]-vertex[n][0])*lightcone.direction[0] + (0.5*domain[1]+0.5*domain[4]-vertex[n][1])*lightcone.direction[1] + (0.5*domain[2]+0.5*domain[5]-vertex[n][2])*lightcone.direction[2]) / dist) - lightcone.opening <= acos((outer*outer + dist*dist - rdom*rdom) / (2. * outer * dist))) // enclosing sphere within opening
+				if (((0.5*domain[0]+0.5*domain[3]-vertex[n][0])*lightcone.direction[0] + (0.5*domain[1]+0.5*domain[4]-vertex[n][1])*lightcone.direction[1] + (0.5*domain[2]+0.5*domain[5]-vertex[n][2])*lightcone.direction[2]) / dist >= lightcone.opening) // center of domain lies within opening
 				{
-					//cout << "proc#" << parallel.rank() << ": case 2, dist = " << dist << ", outer = " << outer << ", rdom = " << rdom << "; vertex = (" << vertex[n][0] << ", " << vertex[n][1] << ", " << vertex[n][2] << endl;
+					n++;
+					continue;
+				} 
+
+				if (dist > outer && acos(((0.5*domain[0]+0.5*domain[3]-vertex[n][0])*lightcone.direction[0] + (0.5*domain[1]+0.5*domain[4]-vertex[n][1])*lightcone.direction[1] + (0.5*domain[2]+0.5*domain[5]-vertex[n][2])*lightcone.direction[2]) / dist) - acos(lightcone.opening) <= acos((outer*outer + dist*dist - rdom*rdom) / (2. * outer * dist))) // enclosing sphere within opening
+				{
+					n++;
+					continue;
+				}
+				
+				if (dist <= outer && acos(((0.5*domain[0]+0.5*domain[3]-vertex[n][0])*lightcone.direction[0] + (0.5*domain[1]+0.5*domain[4]-vertex[n][1])*lightcone.direction[1] + (0.5*domain[2]+0.5*domain[5]-vertex[n][2])*lightcone.direction[2]) / dist) - acos(lightcone.opening) <= asin(rdom / dist)) // enclosing sphere within opening
+				{
 					n++;
 				}
 			}

@@ -6,7 +6,7 @@
 //
 // Author: Farbod Hassani (University i Oslo & Université de Genève) and Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Last modified: April 2023
+// Last modified: March 2024
 //
 //////////////////////////
 
@@ -663,7 +663,7 @@ bool parseFieldSpecifiers(parameter * & params, const int numparam, const char *
 					pvalue |= MASK_POT;
 				else if (strcmp(item, "B") == 0 || strcmp(item, "Bi") == 0)
 					pvalue |= MASK_B;
-				else if (strcmp(item, "P") == 0 || strcmp(item, "p") == 0 || strcmp(item, "v") == 0)
+				else if (strcmp(item, "P") == 0 || strcmp(item, "p") == 0)
 					pvalue |= MASK_P;
 				else if (strcmp(item, "T00") == 0 || strcmp(item, "rho") == 0)
 					pvalue |= MASK_T00;
@@ -685,6 +685,8 @@ bool parseFieldSpecifiers(parameter * & params, const int numparam, const char *
 					pvalue |= MASK_DELTA;
 				else if (strcmp(item, "delta_N") == 0 || strcmp(item, "deltaN") == 0)
 					pvalue |= MASK_DBARE;
+				else if (strcmp(item, "v") == 0 || strcmp(item, "velocity") == 0)
+					pvalue |= MASK_VEL;
 
 				start = comma+1;
 				while (*start == ' ' || *start == '\t') start++;
@@ -698,7 +700,7 @@ bool parseFieldSpecifiers(parameter * & params, const int numparam, const char *
 				pvalue |= MASK_POT;
 			else if (strcmp(start, "B") == 0 || strcmp(start, "Bi") == 0)
 				pvalue |= MASK_B;
-			else if (strcmp(start, "P") == 0 || strcmp(start, "p") == 0 || strcmp(start, "v") == 0)
+			else if (strcmp(start, "P") == 0 || strcmp(start, "p") == 0)
 				pvalue |= MASK_P;
 			else if (strcmp(start, "T00") == 0 || strcmp(start, "rho") == 0)
 				pvalue |= MASK_T00;
@@ -720,6 +722,8 @@ bool parseFieldSpecifiers(parameter * & params, const int numparam, const char *
 				pvalue |= MASK_DELTA;
 			else if (strcmp(start, "delta_N") == 0 || strcmp(start, "deltaN") == 0)
 				pvalue |= MASK_DBARE;
+			else if (strcmp(start, "v") == 0 || strcmp(start, "velocity") == 0)
+					pvalue |= MASK_VEL;
 
 			params[i].used = true;
 			return true;
@@ -836,7 +840,12 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	}
 
 	for (; i < MAX_PCL_SPECIES; i++)
-		strcpy(ic.pclfile[i], ic.pclfile[i-1]);
+	{
+		if (ic.generator == ICGEN_READ_FROM_DISK)
+			strcpy(ic.pclfile[i], "/dev/null");
+		else
+			strcpy(ic.pclfile[i], ic.pclfile[i-1]);
+	}
 
 #ifdef ICGEN_FALCONIC
 	if ((!parseParameter(params, numparam, "mPk file", ic.pkfile) && !parseParameter(params, numparam, "Tk file", ic.tkfile) && ic.generator != ICGEN_READ_FROM_DISK && ic.generator != ICGEN_FALCONIC)
@@ -888,13 +897,21 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	for (; i < MAX_PCL_SPECIES; i++)
 		ic.numtile[i] = ic.numtile[i-1];
 
-	for (i = 0; i < MAX_PCL_SPECIES; i++)
+	if (ic.numtile[0] <= 0 && ic.generator != ICGEN_READ_FROM_DISK)
 	{
-		if (ic.numtile[i] <= 0 && ic.generator != ICGEN_READ_FROM_DISK)
+		COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": tiling number for cdm particle template not set properly; using default value (1)" << endl;
+		ic.numtile[0] = 1;
+	}
+
+	for (i = 1; i < MAX_PCL_SPECIES; i++)
+	{
+		if (ic.numtile[i] < 0 && ic.generator != ICGEN_READ_FROM_DISK)
 		{
 			COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": tiling number for particle template not set properly; using default value (1)" << endl;
 			ic.numtile[i] = 1;
 		}
+		else if (ic.generator == ICGEN_READ_FROM_DISK && strcmp(ic.pclfile[i], "/dev/null") != 0)
+			ic.numtile[i] = 1;
 	}
 
 	if (ic.pkfile[0] != '\0')
@@ -946,6 +963,12 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	{
 		COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": baryon treatment not specified, using default (blend)" << endl;
 		sim.baryon_flag = 2;
+	}
+
+	if (sim.baryon_flag == 1 && ic.numtile[1] <= 0 && ic.generator != ICGEN_READ_FROM_DISK)
+	{
+		COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": tiling number for baryon particle template not set properly; using default value (1)" << endl;
+		ic.numtile[1] = 1;
 	}
 
 	if (parseParameter(params, numparam, "radiation treatment", par_string))
@@ -1203,6 +1226,12 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		}
 	}
 
+	parseParameter(params, numparam, "Courant factor", sim.Cf);
+
+	if (ic.Cf < 0.) ic.Cf = sim.Cf;
+
+	parseParameter(params, numparam, "time step limit", sim.steplimit);
+
 	if (!parseParameter(params, numparam, "move limit", sim.movelimit))
 		sim.movelimit = (double) sim.numpts;
 
@@ -1243,8 +1272,68 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	parseFieldSpecifiers(params, numparam, "snapshot outputs", sim.out_snapshot);
 	parseFieldSpecifiers(params, numparam, "Pk outputs", sim.out_pk);
 
+	if(!parseParameter(params, numparam, "lightcone pixel factor", sim.pixelfactor[0]))
+		sim.pixelfactor[0] = 0.5;
+
+	if(!parseParameter(params, numparam, "lightcone shell factor", sim.shellfactor[0]))
+		sim.shellfactor[0] = 1.;
+
+	if(!parseParameter(params, numparam, "lightcone covering", sim.covering[0]))
+		sim.covering[0] = 2. + 4. / sim.Cf / sim.shellfactor[0];
+
+	i = 2;
+	if(parseParameter(params, numparam, "lightcone Nside", sim.Nside[0], i))
+	{
+		if (i < 1)
+		{
+			COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": parsing of lightcone Nside parameter failed, assuming minimum value Nside=2" << endl;
+			sim.Nside[0][0] = 2;
+		}
+		if (i < 2) sim.Nside[0][1] = sim.Nside[0][0];
+		if (sim.Nside[0][0] < 2)
+		{
+			COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter out of bounds, assuming minimum value Nside=2" << endl;
+			sim.Nside[0][0] = 2;
+		}
+		else
+		{
+			for (i = 2; i < sim.Nside[0][0]; i *= 2);
+			if (i != sim.Nside[0][0])
+			{
+				COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter was found to be no power of two, assuming nearest value Nside=" << i << endl;
+				sim.Nside[0][0] = i;
+			}
+		}
+		if (sim.Nside[0][1] < sim.Nside[0][0])
+		{
+			COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter out of bounds, assuming minimum value Nside=" << sim.Nside[0][0] << endl;
+			sim.Nside[0][1] = sim.Nside[0][0];
+		}
+		else
+		{
+			for (i = 2; i < sim.Nside[0][1]; i *= 2);
+			if (i != sim.Nside[0][1])
+			{
+				COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter was found to be no power of two, assuming nearest value Nside=" << i << endl;
+				sim.Nside[0][1] = i;
+			}
+		}
+	}
+	else
+	{
+		sim.Nside[0][0] = 2;
+		for (sim.Nside[0][1] = 2; sim.Nside[0][1] < sim.numpts; sim.Nside[0][1] *= 2);
+	}
+
 	for (i = 1; i < MAX_OUTPUTS; i++)
+	{
 		sim.out_lightcone[i] = sim.out_lightcone[0];
+		sim.Nside[i][0] = sim.Nside[0][0];
+		sim.Nside[i][1] = sim.Nside[0][1];
+		sim.pixelfactor[i] = sim.pixelfactor[0];
+		sim.shellfactor[i] = sim.shellfactor[0];
+		sim.covering[i] = sim.covering[0];
+	}
 
 	i = 3;
 	if (parseParameter(params, numparam, "lightcone vertex", sim.lightcone[0].vertex, i))
@@ -1263,12 +1352,12 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 				if (sim.lightcone[0].opening > 180. || sim.lightcone[0].opening <= 0.)
 				{
 					COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone opening half-angle out of bounds, assuming full sky" << endl;
-					sim.lightcone[0].opening = M_PI;
+					sim.lightcone[0].opening = -1.;
 				}
-				else sim.lightcone[0].opening *= M_PI / 180.;
+				else sim.lightcone[0].opening = cos(sim.lightcone[0].opening * M_PI / 180.);
 			}
 			else
-				sim.lightcone[0].opening = M_PI;
+				sim.lightcone[0].opening = -1.;
 
 			i = 2;
 			if (parseParameter(params, numparam, "lightcone distance", sim.lightcone[0].distance, i))
@@ -1348,12 +1437,12 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 						if (sim.lightcone[sim.num_lightcone].opening > 180. || sim.lightcone[sim.num_lightcone].opening <= 0.)
 						{
 							COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone opening half-angle out of bounds, assuming full sky" << endl;
-							sim.lightcone[sim.num_lightcone].opening = M_PI;
+							sim.lightcone[sim.num_lightcone].opening = -1.;
 						}
-						else sim.lightcone[sim.num_lightcone].opening *= M_PI / 180.;
+						else sim.lightcone[sim.num_lightcone].opening = cos(sim.lightcone[sim.num_lightcone].opening * M_PI / 180.);
 					}
 					else
-						sim.lightcone[sim.num_lightcone].opening = M_PI;
+						sim.lightcone[sim.num_lightcone].opening = -1.;
 
 					sprintf(par_string, "lightcone %d distance", sim.num_lightcone);
 					i = 2;
@@ -1408,6 +1497,51 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 						sim.lightcone[sim.num_lightcone].direction[1] = 0.;
 						sim.lightcone[sim.num_lightcone].direction[2] = 1.;
 					}
+					sprintf(par_string, "lightcone %d pixel factor", sim.num_lightcone);
+					parseParameter(params, numparam, par_string, sim.pixelfactor[sim.num_lightcone]);
+					sprintf(par_string, "lightcone %d shell factor", sim.num_lightcone);
+					parseParameter(params, numparam, par_string, sim.shellfactor[sim.num_lightcone]);
+					sprintf(par_string, "lightcone %d covering", sim.num_lightcone);
+					parseParameter(params, numparam, par_string, sim.covering[sim.num_lightcone]);
+					sprintf(par_string, "lightcone %d Nside", sim.num_lightcone);
+					i = 2;
+					if(parseParameter(params, numparam, par_string, sim.Nside[sim.num_lightcone], i))
+					{
+						if (i < 1)
+						{
+							COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": parsing of lightcone Nside parameter failed, assuming minimum value Nside=2" << endl;
+							sim.Nside[sim.num_lightcone][0] = 2;
+						}
+						if (i < 2) sim.Nside[sim.num_lightcone][1] = sim.Nside[sim.num_lightcone][0];
+						if (sim.Nside[sim.num_lightcone][0] < 2)
+						{
+							COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter out of bounds, assuming minimum value Nside=2" << endl;
+							sim.Nside[sim.num_lightcone][0] = 2;
+						}
+						else
+						{
+							for (i = 2; i < sim.Nside[sim.num_lightcone][0]; i *= 2);
+							if (i != sim.Nside[sim.num_lightcone][0])
+							{
+								COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter was found to be no power of two, assuming nearest value Nside=" << i << endl;
+								sim.Nside[sim.num_lightcone][0] = i;
+							}
+						}
+						if (sim.Nside[sim.num_lightcone][1] < sim.Nside[sim.num_lightcone][0])
+						{
+							COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter out of bounds, assuming minimum value Nside=" << sim.Nside[sim.num_lightcone][0] << endl;
+							sim.Nside[sim.num_lightcone][1] = sim.Nside[sim.num_lightcone][0];
+						}
+						else
+						{
+							for (i = 2; i < sim.Nside[sim.num_lightcone][1]; i *= 2);
+							if (i != sim.Nside[sim.num_lightcone][1])
+							{
+								COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": lightcone Nside parameter was found to be no power of two, assuming nearest value Nside=" << i << endl;
+								sim.Nside[sim.num_lightcone][1] = i;
+							}
+						}
+					}
 				}
 			}
 			else break;
@@ -1418,7 +1552,7 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	parseParameter(params, numparam, "tracer factor", sim.tracer_factor, i);
 	for (; i > 0; i--)
 	{
-		if (sim.tracer_factor[i-1] < 1)
+		if (sim.tracer_factor[i-1] < 0)
 		{
 			COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": tracer factor not set properly; using default value (1)" << endl;
 			sim.tracer_factor[i-1] = 1;
@@ -1435,12 +1569,6 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		COUT << COLORTEXT_YELLOW << " /!\\ warning" << COLORTEXT_RESET << ": number of Pk bins not set properly; using default value (64)" << endl;
 		sim.numbins = 64;
 	}
-
-	parseParameter(params, numparam, "Courant factor", sim.Cf);
-
-	if (ic.Cf < 0.) ic.Cf = sim.Cf;
-
-	parseParameter(params, numparam, "time step limit", sim.steplimit);
 
 	if (parseParameter(params, numparam, "gravity theory", par_string))
 	{
@@ -1566,6 +1694,8 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		cosmo.Omega_fld = 0.;
 	if (!parseParameter(params, numparam, "w0_fld", cosmo.w0_fld))
 		cosmo.w0_fld = -1.;
+	if (!parseParameter(params, numparam, "wa_fld", cosmo.wa_fld))
+		cosmo.wa_fld = 0.;
 	if (!parseParameter(params, numparam, "cs2_fld", cosmo.cs2_fld))
 		cosmo.cs2_fld = 1.;
 
@@ -1575,135 +1705,136 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		cosmo.Omega_fld = 0.;
 	}
 
-// This code only performs for Newton flag at the moment!
-if (sim.gr_flag != 0)
-  {
-  COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": This code only performs for Newtonian gravity at the moment set gravity theory = Newton!" << endl;
-  parallel.abortForce();
-  }
-
-  if (parseParameter(params, numparam, "MG_Theory", par_string))
-  {
-    if (par_string[0] == 'G' || par_string[0] == 'g')
-      cosmo.MG_Theory=0; // Theory is GR
-    else if (par_string[0] == 'n' || par_string[0] == 'N')
-      cosmo.MG_Theory=1; // Theory is nDGP
-    else if (par_string[0] == 'f' || par_string[0] == 'F')
-      cosmo.MG_Theory=2; // Theory is f(R)
-    else if (par_string[0] == 'c' || par_string[0] == 'C')
-      cosmo.MG_Theory=3; // Theory is cubic Galileon
-    else if (par_string[0] == 'Q' || par_string[0] == 'q')
-      cosmo.MG_Theory=4; // Theory is QCDM
-    else cosmo.MG_Theory=0; // The default is GR
-  }
-
-if (cosmo.MG_Theory==2) // If the theory is chosen to f(R)
-{
-  if (!parseParameter(params, numparam, "fR0", cosmo.fR0))
-    cosmo.fR0 = 0.;
-  if (!parseParameter(params, numparam, "b_cham", cosmo.b_cham))
-    cosmo.b_cham = 2.0;
-  if (!parseParameter(params, numparam, "k_env", cosmo.k_env))
-    cosmo.k_env = 0.5;
-  if (!parseParameter(params, numparam, "r_th", cosmo.r_th))
-    cosmo.r_th = 7.;
-  if (!parseParameter(params, numparam, "screening", cosmo.screening_fR))
-      cosmo.screening_fR = 1;
-}
-
-if (cosmo.MG_Theory==3) // If the theory is chosen to Cubic Galileon
-{
-  if (!parseParameter(params, numparam, "c3", cosmo.c3))
-  {
-    cosmo.c3 = 10.;
-  }
-  if (!parseParameter(params, numparam, "k_s", cosmo.k_s))
-  {
-    cosmo.k_s = 0.1;
-  }
-  #ifndef HAVE_BG_CG
-    COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has been requested while the code hasn't been compiled with HAVE_BG_CG, in the makefile add DGEVOLUTION  += -DHAVE_BG_CG" << endl;
-    parallel.abortForce();
-  #endif
-}
-
-if (cosmo.MG_Theory==4) // If the theory is chosen to QCDM model (bg like cubic Galileon while it sperturbations similar to GR)
-{
-  if (!parseParameter(params, numparam, "c3", cosmo.c3))
-  {
-    cosmo.c3 = 10.;
-  }
-  #ifndef HAVE_BG_CG
-    COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": QCDM has been requested while the code hasn't been compiled with HAVE_BG_CG, in the makefile add DGEVOLUTION  += -DHAVE_BG_CG" << endl;
-    parallel.abortForce();
-  #endif
-}
-
-#ifdef HAVE_BG_CG
-
-  if ( (cosmo.MG_Theory!=3) && (cosmo.MG_Theory!=4))
+  // MG-evolution part
+  //This code only performs for Newton flag at the moment!
+  if (sim.gr_flag != 0)
     {
-    COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has not been requested while the code has been compiled with HAVE_BG_CG" << endl;
+    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": This code only performs for Newtonian gravity at the moment set gravity theory = Newton!" << endl;
     parallel.abortForce();
     }
 
-#endif
-
-if (cosmo.MG_Theory==1) // If the theory is chosen nDGP
-{
-  if (!parseParameter(params, numparam, "H0r_c", cosmo.H0rc))
-  {
-    cosmo.H0rc = 0.5;
-  }
-
-  if (!parseParameter(params, numparam, "Screening", sim.Screening))
-  {
-    sim.Screening = 1;
-  }
-  if (!parseParameter(params, numparam, "Screening_method", sim.Screening_method))
-  {
-    sim.Screening_method = 1; // Fourier space screening
-  }
-  if (!parseParameter(params, numparam, "k_screen", cosmo.k_screen))
-  {
-    cosmo.k_screen = 0.1;
-    cosmo.r_screen = 0.0;
-  }
-
-  if (sim.Screening_method == 0)
-  {
-  if (!parseParameter(params, numparam, "r_screen", cosmo.r_screen))
-  {
-    cosmo.r_screen = 1.0;
-  }
-  }
- // ERORRS:
- if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
-   {
-   COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose both r_screen and k_screen" << endl;
-    parallel.abortForce();
-   }
-if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
-  {
-  COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose both r_screen and k_screen" << endl;
-  parallel.abortForce();
-  }
-  if (sim.Screening_method == 0)
-    COUT<< COLORTEXT_YELLOW << " WARNING : "<<"The real space parametrisation does not perform well!"<<endl;
-
-  if ((sim.Screening_method == 0) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
-  {
-    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant choose k_screen while real space screening is chosen!" << endl;
-    parallel.abortForce();
-  }
-
-  if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && ((parseParameter(params, numparam, "k_screen", cosmo.k_screen)) || (sim.Screening_method == 1) ))
+    if (parseParameter(params, numparam, "MG_Theory", par_string))
     {
-    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose r_screen when k_screen is chosen or when screening method = 1 (Fourier space)" << endl;
-    parallel.abortForce();
+      if (par_string[0] == 'G' || par_string[0] == 'g')
+        cosmo.MG_Theory=0; // Theory is GR
+      else if (par_string[0] == 'n' || par_string[0] == 'N')
+        cosmo.MG_Theory=1; // Theory is nDGP
+      else if (par_string[0] == 'f' || par_string[0] == 'F')
+        cosmo.MG_Theory=2; // Theory is f(R)
+      else if (par_string[0] == 'c' || par_string[0] == 'C')
+        cosmo.MG_Theory=3; // Theory is cubic Galileon
+      else if (par_string[0] == 'Q' || par_string[0] == 'q')
+        cosmo.MG_Theory=4; // Theory is QCDM
+      else cosmo.MG_Theory=0; // The default is GR
     }
 
-}
+  if (cosmo.MG_Theory==2) // If the theory is chosen to f(R)
+  {
+    if (!parseParameter(params, numparam, "fR0", cosmo.fR0))
+      cosmo.fR0 = 0.;
+    if (!parseParameter(params, numparam, "b_cham", cosmo.b_cham))
+      cosmo.b_cham = 2.0;
+    if (!parseParameter(params, numparam, "k_env", cosmo.k_env))
+      cosmo.k_env = 0.5;
+    if (!parseParameter(params, numparam, "r_th", cosmo.r_th))
+      cosmo.r_th = 7.;
+    if (!parseParameter(params, numparam, "screening", cosmo.screening_fR))
+        cosmo.screening_fR = 1;
+  }
+
+  if (cosmo.MG_Theory==3) // If the theory is chosen to Cubic Galileon
+  {
+    if (!parseParameter(params, numparam, "c3", cosmo.c3))
+    {
+      cosmo.c3 = 10.;
+    }
+    if (!parseParameter(params, numparam, "k_s", cosmo.k_s))
+    {
+      cosmo.k_s = 0.1;
+    }
+    #ifndef HAVE_BG_CG
+      COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has been requested while the code hasn't been compiled with HAVE_BG_CG, in the makefile add DGEVOLUTION  += -DHAVE_BG_CG" << endl;
+      parallel.abortForce();
+    #endif
+  }
+
+  if (cosmo.MG_Theory==4) // If the theory is chosen to QCDM model (bg like cubic Galileon while it sperturbations similar to GR)
+  {
+    if (!parseParameter(params, numparam, "c3", cosmo.c3))
+    {
+      cosmo.c3 = 10.;
+    }
+    #ifndef HAVE_BG_CG
+      COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": QCDM has been requested while the code hasn't been compiled with HAVE_BG_CG, in the makefile add DGEVOLUTION  += -DHAVE_BG_CG" << endl;
+      parallel.abortForce();
+    #endif
+  }
+
+  #ifdef HAVE_BG_CG
+
+    if ( (cosmo.MG_Theory!=3) && (cosmo.MG_Theory!=4))
+      {
+      COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has not been requested while the code has been compiled with HAVE_BG_CG" << endl;
+      parallel.abortForce();
+      }
+
+  #endif
+
+  if (cosmo.MG_Theory==1) // If the theory is chosen nDGP
+  {
+    if (!parseParameter(params, numparam, "H0r_c", cosmo.H0rc))
+    {
+      cosmo.H0rc = 0.5;
+    }
+
+    if (!parseParameter(params, numparam, "Screening", sim.Screening))
+    {
+      sim.Screening = 1;
+    }
+    if (!parseParameter(params, numparam, "Screening_method", sim.Screening_method))
+    {
+      sim.Screening_method = 1; // Fourier space screening
+    }
+    if (!parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+    {
+      cosmo.k_screen = 0.1;
+      cosmo.r_screen = 0.0;
+    }
+
+    if (sim.Screening_method == 0)
+    {
+    if (!parseParameter(params, numparam, "r_screen", cosmo.r_screen))
+    {
+      cosmo.r_screen = 1.0;
+    }
+    }
+   // ERORRS:
+   if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+     {
+     COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose both r_screen and k_screen" << endl;
+      parallel.abortForce();
+     }
+  if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+    {
+    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose both r_screen and k_screen" << endl;
+    parallel.abortForce();
+    }
+    if (sim.Screening_method == 0)
+      COUT<< COLORTEXT_YELLOW << " WARNING : "<<"The real space parametrisation does not perform well!"<<endl;
+
+    if ((sim.Screening_method == 0) && parseParameter(params, numparam, "k_screen", cosmo.k_screen))
+    {
+      COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant choose k_screen while real space screening is chosen!" << endl;
+      parallel.abortForce();
+    }
+
+    if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && ((parseParameter(params, numparam, "k_screen", cosmo.k_screen)) || (sim.Screening_method == 1) ))
+      {
+      COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": You cant chose r_screen when k_screen is chosen or when screening method = 1 (Fourier space)" << endl;
+      parallel.abortForce();
+      }
+
+  } // End og MG-evolution
 
 	if (parseParameter(params, numparam, "omega_b", cosmo.Omega_b))
 	{
@@ -1742,9 +1873,9 @@ if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParamet
 		parallel.abortForce();
 #endif
 	}
-	else
-	{
-		cosmo.Omega_Lambda = 1. - cosmo.Omega_m - cosmo.Omega_rad - cosmo.Omega_fld;
+  else // MG-evolution part begin
+  {
+    cosmo.Omega_Lambda = 1. - cosmo.Omega_m - cosmo.Omega_rad - cosmo.Omega_fld;
     if (cosmo.MG_Theory==0) // If the theory is chosen GR
     {
     COUT << COLORTEXT_BLUE << " Gravity Theory is set to = " << "GR - Newtonian"<<endl;
@@ -1755,7 +1886,7 @@ if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParamet
     {
     COUT << COLORTEXT_BLUE << " Gravity Theory is set to = " << "nDGP"<< ", H0r_c = " << cosmo.H0rc<< ", Screening = " <<sim.Screening<< " Screening_method(0 in real space, 1 in Fourier) = "<<sim.Screening_method <<", k_screen= "<<cosmo.k_screen<<", r_screen= "<< cosmo.r_screen <<endl;
     COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_Lambda= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
-	}
+  }
 
   else if (cosmo.MG_Theory==2)
   {
@@ -1772,18 +1903,22 @@ if (parseParameter(params, numparam, "r_screen", cosmo.r_screen) && parseParamet
     COUT<< COLORTEXT_BLUE << " QCDM is requested, the parameters are: c2 = -1, c3 = "<<cosmo.c3<< COLORTEXT_RESET<< endl;
     COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_galileon= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
   }
-}
+} // MG-evolution part end
+
 	if(!parseParameter(params, numparam, "switch delta_rad", sim.z_switch_deltarad))
 		sim.z_switch_deltarad = 0.;
 
 	i = MAX_PCL_SPECIES-2;
 	if (!parseParameter(params, numparam, "switch delta_ncdm", sim.z_switch_deltancdm, i))
 	{
-		sim.z_switch_deltancdm[0] = sim.z_in;
-		i = 1;
+		for (i = 0; i < MAX_PCL_SPECIES-2; i++)
+			sim.z_switch_deltancdm[i] = (ic.numtile[(sim.baryon_flag == 1) ? 2+i : 1+i] > 0) ? sim.z_in : 0.;
 	}
-	for (; i < MAX_PCL_SPECIES-2; i++)
-		sim.z_switch_deltancdm[i] = sim.z_switch_deltancdm[i-1];
+	else
+	{
+		for (; i < MAX_PCL_SPECIES-2; i++)
+			sim.z_switch_deltancdm[i] = sim.z_switch_deltancdm[i-1];
+	}
 
 	if(!parseParameter(params, numparam, "switch linear chi", sim.z_switch_linearchi))
 	{

@@ -4,9 +4,9 @@
 //
 // Constants and metadata structures
 //
-// Author: Farbod Hassani (University i Oslo & Université de Genève) and Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
+// Author: Farbod Hassani (Universitet i Oslo & Université de Genève) and Julian Adamek (Université de Genève & Observatoire de Paris & Queen Mary University of London)
 //
-// Last modified: April 2023
+// Last modified: April 2019
 //
 //////////////////////////
 
@@ -31,8 +31,8 @@
 #define MAX_INTERSECTS 12
 #endif
 
-#ifndef LIGHTCONE_THICKNESS
-#define LIGHTCONE_THICKNESS 1
+#ifndef LIGHTCONE_IDCHECK_ZONE
+#define LIGHTCONE_IDCHECK_ZONE 0.05
 #endif
 
 #define LIGHTCONE_PHI_OFFSET 0
@@ -64,6 +64,7 @@
 #define MASK_DELTA  4096
 #define MASK_DBARE  8192
 #define MASK_MULTI  16384
+#define MASK_VEL    32768
 
 #define ICFLAG_CORRECT_DISPLACEMENT 1
 #define ICFLAG_KSPHERE              2
@@ -127,12 +128,13 @@
 #define COLORTEXT_WHITE     "\033[37;1m"
 #define COLORTEXT_CYAN      "\033[36;1m"
 #define COLORTEXT_GREEN     "\033[32;1m"
-#define COLORTEXT_BLUE "\033[34;1m"
+#define COLORTEXT_BLUE      "\033[34;1m"
 #define COLORTEXT_RED       "\033[31;1m"
 #define COLORTEXT_YELLOW    "\033[33;1m"
 #define COLORTEXT_RESET     "\033[0m"
 #else
 #define COLORTEXT_WHITE     '\0'
+#define COLORTEXT_BLUE      "\0"
 #define COLORTEXT_CYAN      '\0'
 #define COLORTEXT_GREEN     '\0'
 #define COLORTEXT_RED       '\0'
@@ -167,6 +169,26 @@ struct gadget2_header
 };
 #endif
 
+#ifdef HAVE_HEALPIX
+#include "chealpix.h"
+#ifndef PIXBUFFER
+#define PIXBUFFER 1048576
+#endif
+
+struct healpix_header
+{
+	uint32_t Nside;
+	uint32_t Npix;
+	uint32_t precision;
+	uint32_t Ngrid;
+	double direction[3];
+	double distance;
+	double boxsize;
+	uint32_t Nside_ring;
+	char fill[256 - 5 * 4 - 5 * 8]; /* fills to 256 Bytes */
+};
+#endif
+
 struct lightcone_geometry
 {
 	double vertex[3];
@@ -195,6 +217,7 @@ struct metadata
 	int num_snapshot;
 	int num_lightcone;
 	int num_restart;
+	int Nside[MAX_OUTPUTS][2];
 	double Cf;
 	double movelimit;
 	double steplimit;
@@ -203,6 +226,9 @@ struct metadata
   int Screening;
   int Screening_method;
 	double wallclocklimit;
+	double pixelfactor[MAX_OUTPUTS];
+	double shellfactor[MAX_OUTPUTS];
+	double covering[MAX_OUTPUTS];
 	double z_in;
 	double z_snapshot[MAX_OUTPUTS];
 	double z_pk[MAX_OUTPUTS];
@@ -245,7 +271,7 @@ struct icsettings
 
 struct cosmology
 {
-  double Omega_cdm;
+	double Omega_cdm;
   int MG_Theory; // 0 means LCDM, 1 ndGP, 2 f(R), 3 QCG
   // NDGP part
   double H0rc;
@@ -261,12 +287,13 @@ struct cosmology
   double c3;
   double k_s;
   double DeltaG_over_G_linear;
-  //
+  // MG-evolution params
 	double Omega_b;
 	double Omega_m;
 	double Omega_Lambda;
 	double Omega_fld;
 	double w0_fld;
+	double wa_fld;
 	double cs2_fld;
 	double Omega_g;
 	double Omega_ur;
