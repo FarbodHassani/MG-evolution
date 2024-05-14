@@ -601,7 +601,7 @@ if (sim.Screening > 0 &&  sim.Screening_method == 0) // Real space screening
     if (cycle == 0)
     COUT << COLORTEXT_BLUE <<" Equations for Cubic Galileon are being solved!" << COLORTEXT_RESET<<endl;
     plan_source.execute(FFT_FORWARD);  // Newton: directly go to k-space
-    solveModifiedPoissonFT_Cubic_Galileon(scalarFT, scalarFT, fourpiG / a, cosmo.k_s, cosmo.c3, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime(a, fourpiG, cosmo), sim.boxsize, cosmo.DeltaG_over_G_linear);
+    solveModifiedPoissonFT_Cubic_Galileon(scalarFT, scalarFT, fourpiG / a, cosmo.k_s, cosmo.c3, a, Hconf(a, fourpiG, cosmo) , Hconf(1., fourpiG, cosmo), Hconf_prime(a, fourpiG, cosmo), sim.boxsize, cosmo.DeltaG_over_G_linear, cosmo.non_linear_CG);
   }
 
   else if (cosmo.MG_Theory == 4) // QCDM
@@ -644,7 +644,7 @@ if (sim.Screening > 0 &&  sim.Screening_method == 0) // Real space screening
         }
         if (cosmo.MG_Theory == 3)
         {
-        fprintf(outfile, " %6d   %e   %e   %e   %e   %e\n", cycle, tau, a, Hconf(a, fourpiG, cosmo) / Hconf(1., fourpiG, cosmo), cosmo.DeltaG_over_G_linear, scalarFT(kFT).real(), T00hom);
+        fprintf(outfile, " %6d   %e   %e   %e   %e   %e   %e\n", cycle, tau, a, Hconf(a, fourpiG, cosmo) / Hconf(1., fourpiG, cosmo), cosmo.DeltaG_over_G_linear, scalarFT(kFT).real(), T00hom);
         fclose(outfile);
         }
         else

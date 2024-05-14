@@ -1752,6 +1752,11 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
     {
       cosmo.k_s = 0.1;
     }
+    if (!parseParameter(params, numparam, "non_linear_CG", cosmo.non_linear_CG))
+    {
+      cosmo.non_linear_CG = 1; // Non-linear implementation is the default!
+    }
+
     #ifndef HAVE_BG_CG
       COUT<< COLORTEXT_RED << " Error" << COLORTEXT_RESET << ": Cubic Galileon has been requested while the code hasn't been compiled with HAVE_BG_CG, in the makefile add DGEVOLUTION  += -DHAVE_BG_CG" << endl;
       parallel.abortForce();
@@ -1895,7 +1900,7 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
   }
   else if (cosmo.MG_Theory==3)
   {
-    COUT<< COLORTEXT_BLUE << " Cubic Galileon requested the parameters are: c2 = -1, c3 = "<<cosmo.c3<<", k_s = "<<cosmo.k_s<<" [h/Mpc]"<< COLORTEXT_RESET<< endl;
+    COUT<< COLORTEXT_BLUE << " Cubic Galileon requested the parameters are: c2 = -1, c3 = "<<cosmo.c3<<", k_s = "<<cosmo.k_s<<" [h/Mpc]"<< ", non-linear implementaiton is considered: "<< cosmo.non_linear_CG<< COLORTEXT_RESET<< endl;
     COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad<< ", Omega_g0 = " << cosmo.Omega_g<< ", Omega_ur0 = " << cosmo.Omega_ur << ", h = " << cosmo.h << ", Omega_galileon= "<<cosmo.Omega_Lambda<< COLORTEXT_RESET <<endl;
   }
   else if (cosmo.MG_Theory==4)

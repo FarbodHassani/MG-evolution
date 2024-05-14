@@ -287,6 +287,7 @@ struct cosmology
   double c3;
   double k_s;
   double DeltaG_over_G_linear;
+  int non_linear_CG;
   // MG-evolution params
 	double Omega_b;
 	double Omega_m;

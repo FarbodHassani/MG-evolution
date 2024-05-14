@@ -497,7 +497,7 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 //
 //////////////////////////
 
-void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double k_screen, const double c3, const double a, const double H_conf, const double H0, const double H_conf_prime, const double boxsize, double & DeltaG_over_G_linear, const Real modif = 0.)
+void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const double k_screen, const double c3, const double a, const double H_conf, const double H0, const double H_conf_prime, const double boxsize, double & DeltaG_over_G_linear, int non_linear_CG, const Real modif = 0.)
 {
   const int linesize = potFT.lattice().size(1);
   int i;
@@ -520,9 +520,7 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   beta1 = (1./(6. * c3)) * (-c2 - 4. * c3 * (phi_ddot + 2. * Hubble_phys * phi_dot)/M_cubed + 2. * kappa * c3 * c3 * pow(phi_dot,4)/M_cubed/M_cubed);
   beta2 = 2. * M_cubed * M_pl * beta1/phi_dot/phi_dot;
   DeltaG_over_G_linear = - 2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
-
   //#################
-
   gridk2 = (Real *) malloc(linesize * sizeof(Real));
   coeff /= -((long) linesize * (long) linesize * (long) linesize);
 
@@ -545,14 +543,16 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   for (; k.test(); k.next())
   {
     k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
-    k_gev = sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
-    epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen); //epsilon in according to our parametrization!
-    screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
+    if (non_linear_CG == 1)
+    {
+      k_gev = sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
+      epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen); //epsilon in according to our parametrization!
+      screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
+    }
+    else screen_term = 1.;
     //////////////////////////////////////////
     DeltaG_over_G = DeltaG_over_G_linear * screen_term;
-    CG_parametrized = 1 +  DeltaG_over_G;
-    // density_smooth_FT (k) = DeltaG_over_G ;
-    // radi_field_FT (k) = k_gev/k_screen;
+    CG_parametrized = 1. +  DeltaG_over_G;
     potFT(k) = CG_parametrized * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
   }
 
@@ -590,7 +590,6 @@ void Modified_Gravity_Newtonian_nDGP(Field<FieldType> & source_mg, Field<FieldTy
   // Virial density (Delta rho) is taken as 400
 		source_mg(x) = (1. +  DeltaG_over_G ) * source(x); // Modified Posson equation
   }
-
 }
 // Note that source(x) += (fourpiG * dx * dx / a) * T00_Kess(x)
 // To find T00 = source(x)/(fourpiG * dx * dx / a)
@@ -609,25 +608,10 @@ void Modified_Gravity_Newtonian_nDGP_screened(Field<FieldType> & source_mg, Fiel
     DeltaG_over_G = (2./3./beta) * screen_term;
     density_smooth (x) = DeltaG_over_G;
     radius (x) = pow ( (1+delta_m)/400.0, 1./3.0 ); // M_vir = 4pi/3 rho_m_bar_0 * r_{th}^3 --> r_th = 1/a r_vir Delta_vir_rho ^1/3
-  // So radius normalized to r_th is obtained by the ratio of density of each point to the virial density.
-  // Virial density (Delta rho) is taken as 400
-    // if(x.coord(0)==15 && x.coord(1)==15 && x.coord(2) ==15)
-    // {
-      // cout<<"delta_m: "<<delta_m<<endl;
-    //   // cout<<"omega_m a^{-3} delta_m: "<<delta_m/( a * a * a )<<endl;
-    //   // // cout<<"8. * H0rc * H0rc:  " << 8. * H0rc * H0rc/(9. *  beta * beta)<<endl;
-    //     cout<<"epsilon: "<< epsilon<<endl;
-    //   cout<<"1. +  DeltaG_over_G "<<1. +  DeltaG_over_G<<endl;
-    //   //
-    //   //
-    //   cout<<"Beta: "<<beta<<" epsilon: "<<epsilon<<" screen_term: "<<screen_term <<" DeltaG_over_G: " <<DeltaG_over_G <<"a: "<<a<<endl;
-    // }
 		source_mg(x) = (1. +  DeltaG_over_G ) * source(x); // Modified Posson equation
     //Source for Newtonian simulation is "\delta \rho"
   }
-
 }
-
 
   //////////////////////////
   // solveModifiedPoissonFT_f(R)
