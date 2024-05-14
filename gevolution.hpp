@@ -505,7 +505,7 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   Real * sinc;
   rKSite k(potFT.lattice());
   double k2;
-  double epsilon, DeltaG_over_G, CG_parametrized, k_gev, screen_term;
+  double epsilon, DeltaG_over_G, CG_parametrized, k_gev, screen_term, k_f, f_filter;
   double M_cubed, c2, M_pl, beta1, beta2, fourpiG, kappa, phi_dot, phi_ddot, Hubble_phys, xi, H_phys_dot;
   fourpiG = 3. * H0 * H0/2.;
   M_pl = sqrt(1./(2.* fourpiG));
@@ -520,6 +520,7 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
   beta1 = (1./(6. * c3)) * (-c2 - 4. * c3 * (phi_ddot + 2. * Hubble_phys * phi_dot)/M_cubed + 2. * kappa * c3 * c3 * pow(phi_dot,4)/M_cubed/M_cubed);
   beta2 = 2. * M_cubed * M_pl * beta1/phi_dot/phi_dot;
   DeltaG_over_G_linear = - 2. * c3 * phi_dot * phi_dot/(3. * M_pl * M_cubed * beta2);
+  k_f = 0.2; // h/Mpc based on 2209.01666
   //#################
   gridk2 = (Real *) malloc(linesize * sizeof(Real));
   coeff /= -((long) linesize * (long) linesize * (long) linesize);
@@ -551,7 +552,8 @@ void solveModifiedPoissonFT_Cubic_Galileon(Field<Cplx> & sourceFT, Field<Cplx> &
     }
     else screen_term = 1.;
     //////////////////////////////////////////
-    DeltaG_over_G = DeltaG_over_G_linear * screen_term;
+    f_filter = exp(- 0.5 * k_gev*k_gev/k_f/k_f);
+    DeltaG_over_G = DeltaG_over_G_linear * f_filter + (1. - f_filter) * DeltaG_over_G_linear * screen_term;
     CG_parametrized = 1. +  DeltaG_over_G;
     potFT(k) = CG_parametrized * sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
   }
