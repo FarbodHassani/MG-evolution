@@ -1,7 +1,7 @@
-# gevolution-1.2
+# MG-evolution
 
-Copyright (c) 2015-2020 Julian Adamek
-(Université de Genève & Observatoire de Paris & Queen Mary University of London)
+Copyright (c) 2020-2024 Farbod Hassani (MG-evolution) and Julian Adamek (gevolution)
+(University of Oslo -- University of Zurich)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,17 +39,18 @@ compiled by typing:
 
 A typical command to run a simulation looks like this:
 
-    mpirun -np 16 ./gevolution -n 4 -m 4 -s settings.ini
+    mpirun -np 16 ./mgevolution -n 4 -m 4 -s settings.ini
 
 For further information, please refer to the User Manual (manual.pdf)
 
 ## Credits
 
-If you use gevolution for scientific work, we kindly ask you to cite
-*Adamek J., Daverio D., Durrer R., and Kunz M., Nature Phys. 12, 346 (2016)*
-in your publications.
+If you use MG-evolution for academic purposes, we kindly ask you to cite
+
+*Farbod Hassani, Lucas Lombriser, Mon.Not.Roy.Astron.Soc. 497 (2020) 2, 1885-1894*
+in your articles.
 
 For bug reports and other important feedback you can contact the authors,
-julian.adamek@qmul.ac.uk (for queries related to gevolution)
+farbod.hassani@astro.uio.no (for questions related to MG-evolution)
+julian.adamek@uzh.ch (for queries related to gevolution)
 developers@latfield.org (for queries related to the LATfield2 library)
-
