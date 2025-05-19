@@ -1705,14 +1705,6 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 		cosmo.Omega_fld = 0.;
 	}
 
-  // MG-evolution part
-  //This code only performs for Newton flag at the moment!
-  if (sim.gr_flag != 0)
-    {
-    COUT<< COLORTEXT_RED << " error" << COLORTEXT_RESET << ": This code only performs for Newtonian gravity at the moment set gravity theory = Newton!" << endl;
-    parallel.abortForce();
-    }
-
     if (parseParameter(params, numparam, "MG_Theory", par_string))
     {
       if (par_string[0] == 'G' || par_string[0] == 'g')
@@ -1839,7 +1831,7 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
       parallel.abortForce();
       }
 
-  } // End og MG-evolution
+  } // End of MG-evolution
 
 	if (parseParameter(params, numparam, "omega_b", cosmo.Omega_b))
 	{

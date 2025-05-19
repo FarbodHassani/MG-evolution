@@ -243,24 +243,29 @@ COUT << "running on " << n*m << " cores." << endl;
 	Field<Real> phi;
   Field<Real> density_smooth;
   Field<Real> radius; //MG-evolution
-	Field<Real> source; //MG-evolution
+	Field<Real> source;  // MG-evolution: This is going to be T_0^0 - T_bg
+  Field<Real> source_full; // MG-evolution: This is going to a field for full relativitsic contribution including T_00 - T_bg
 	Field<Real> chi;
 	Field<Real> Sij;
 	Field<Real> Bi;
 	Field<Cplx> scalarFT;
+  Field<Cplx> scalarFT_full;
 	Field<Cplx> SijFT;
 	Field<Cplx> BiFT;
   Field<Cplx> density_smooth_FT; //MG-evolution
   Field<Cplx>  radius_FT; //MG-evolution
 	source.initialize(lat,1);
+  source_full.initialize(lat,1);
   density_smooth.initialize(lat,1);
   radius.initialize(lat,1);
 	phi.initialize(lat,1);
 	chi.initialize(lat,1);
 	scalarFT.initialize(latFT,1);
+  scalarFT_full.initialize(latFT,1);
   density_smooth_FT.initialize(latFT,1);
   radius_FT.initialize(latFT,1);
 	PlanFFT<Cplx> plan_source(&source, &scalarFT);
+  PlanFFT<Cplx> plan_source_full(&source_full, &scalarFT_full);
 	PlanFFT<Cplx> plan_phi(&phi, &scalarFT);
   PlanFFT<Cplx> plan_density_smooth(&density_smooth, &density_smooth_FT); //MG-evolution
   PlanFFT<Cplx> plan_radius(&radius, &radius_FT);//MG-evolution
@@ -517,18 +522,46 @@ COUT << "running on " << n*m << " cores." << endl;
 
 			if (dtau_old > 0.)
 			{
-				prepareFTsource<Real>(phi, chi, source, cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo), source, 3. * Hconf(a, fourpiG, cosmo) * dx * dx / dtau_old, fourpiG * dx * dx / a, 3. * Hconf(a, fourpiG, cosmo) * Hconf(a, fourpiG, cosmo) * dx * dx);  // prepare nonlinear source for phi update
+				prepareFTsource<Real>(phi, chi, source, cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo), source_full, 3. * Hconf(a, fourpiG, cosmo) * dx * dx / dtau_old, fourpiG * dx * dx / a, 3. * Hconf(a, fourpiG, cosmo) * Hconf(a, fourpiG, cosmo) * dx * dx);  // prepare nonlinear source for phi update
 
-#ifdef BENCHMARK
-				ref2_time= MPI_Wtime();
-#endif
-				plan_source.execute(FFT_FORWARD);  // go to k-space
-#ifdef BENCHMARK
-				fft_time += MPI_Wtime() - ref2_time;
-				fft_count++;
-#endif
+      if (cosmo.MG_Theory == 0)
+      {
+        if (cycle == 1)
+          COUT << COLORTEXT_BLUE <<" Equations for GR only-no MG are being solved!" << COLORTEXT_RESET<<endl;
 
+        #ifdef BENCHMARK
+        				ref2_time= MPI_Wtime();
+        #endif
+        				plan_source.execute(FFT_FORWARD);  // go to k-space
+        #ifdef BENCHMARK
+        				fft_time += MPI_Wtime() - ref2_time;
+        				fft_count++;
+        #endif
 				solveModifiedPoissonFT(scalarFT, scalarFT, 1. / (dx * dx), 3. * Hconf(a, fourpiG, cosmo) / dtau_old);  // phi update (k-space)
+      }
+
+      else if (cosmo.MG_Theory==1)  // nDGP
+     {
+
+       if (sim.Screening_method == 1)
+           {
+             if (cycle == 1)
+               COUT << COLORTEXT_BLUE <<" Equations for nDGP + GR with Fourier space with screening being solved!" << COLORTEXT_RESET<<endl;
+
+               plan_source.execute(FFT_FORWARD);  //  go to k-space - only T_0^0 - T_bg
+               plan_source_full.execute(FFT_FORWARD);  // go to k-space - full source terms
+               solveModifiedPoissonFT_MG_GR(scalarFT, scalarFT, scalarFT_full, a, Hconf(a, fourpiG, cosmo), Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), cosmo.k_screen, sim.Screening_method, cosmo.H0rc, sim.boxsize, 1. / (dx * dx), 3. * Hconf(a, fourpiG, cosmo) / dtau_old);  // phi update (k-space)
+           }
+       else
+           {
+             if (cycle == 1)
+               COUT << COLORTEXT_BLUE <<" Equations for nDGP + GR with Fourier space without screening being solved!" << COLORTEXT_RESET<<endl;
+
+               plan_source.execute(FFT_FORWARD);  //  go to k-space - only T_0^0 - T_bg
+               plan_source_full.execute(FFT_FORWARD);  // go to k-space - full source terms
+               solveModifiedPoissonFT_MG_GR(scalarFT, scalarFT, scalarFT_full, a, Hconf(a, fourpiG, cosmo), Hconf(1., fourpiG, cosmo), Hconf_prime( a, fourpiG, cosmo), cosmo.k_screen, sim.Screening_method, cosmo.H0rc, sim.boxsize, 1. / (dx * dx), 3. * Hconf(a, fourpiG, cosmo) / dtau_old);  // phi update (k-space)
+           }
+         }
 
 #ifdef BENCHMARK
 				ref2_time= MPI_Wtime();

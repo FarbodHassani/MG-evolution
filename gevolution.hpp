@@ -174,6 +174,7 @@ void prepareFTsource(Field<FieldType> & phi, Field<FieldType> & chi, Field<Field
 	for (x.first(); x.test(); x.next())
 	{
 		result(x) = coeff2 * (source(x) - bgmodel);
+    source(x) = result(x); // source is not updated to T_0^0 - T_bg^0_0 this is the term we will use to modify!
 #ifdef PHINONLINEAR
 #ifdef ORIGINALMETRIC
 		result(x) *= 1. - 4. * phi(x);
@@ -481,6 +482,123 @@ void projectFTtensor(Field<Cplx> & SijFT, Field<Cplx> & hijFT)
 	free(kshift);
 }
 
+//////////////////////////
+// solveModifiedPoissonFT
+//////////////////////////
+// Description:
+//   Modified Poisson solver using the standard Fourier method
+//
+// Arguments:
+//   sourceFT   reference to the Fourier image of the source field
+//   potFT      reference to the Fourier image of the potential
+//   coeff      coefficient applied to the source ("4 pi G / a")
+//   modif      modification k^2 -> k^2 + modif (default 0 gives standard Poisson equation)
+//
+// Returns:
+//
+//////////////////////////
+
+void solveModifiedPoissonFT(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const Real modif = 0.)
+{
+	const int linesize = potFT.lattice().size(1);
+	int i;
+	Real * gridk2;
+	Real * sinc;
+	rKSite k(potFT.lattice());
+
+	gridk2 = (Real *) malloc(linesize * sizeof(Real));
+
+	coeff /= -((long) linesize * (long) linesize * (long) linesize);
+
+	for (i = 0; i < linesize; i++)
+	{
+		gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
+		gridk2[i] *= gridk2[i];
+	}
+
+	k.first();
+	if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
+	{
+		if (modif == 0.)
+			potFT(k) = Cplx(0.,0.);
+		else
+			potFT(k) = sourceFT(k) * coeff / modif;
+		k.next();
+	}
+
+	for (; k.test(); k.next())
+	{
+		potFT(k) = sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
+	}
+
+	free(gridk2);
+}
+#endif
+
+//////////////////////////
+// solveModifiedPoissonFT_f(R)
+//////////////////////////
+// Description:
+//   Modified Poisson solver using the standard Fourier method_f(R)
+//
+// Arguments:
+//   sourceFT   reference to the Fourier image of the source field
+//   potFT      reference to the Fourier image of the potential
+//   coeff      coefficient applied to the source ("4 pi G / a")
+//   modif      modification k^2 -> k^2 + modif (default 0 gives standard Poisson equation)
+//
+// Returns:
+//
+//////////////////////////
+
+void solveModifiedPoissonFT_MG_GR(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Field<Cplx> & sourceFT_full,  const double a, const double H_conf, const double H0, const double H_conf_prime, const double k_screen, const int screening, const double H0rc, const double boxsize, Real coeff, const Real modif = 0.)
+{
+  const int linesize = potFT.lattice().size(1);
+  int i;
+  Real * gridk2;
+  Real * sinc;
+  rKSite k(potFT.lattice());
+  double k2;
+  double epsilon,  beta, DeltaG_over_G, ndgp_parametrized, k_gev, screen_term ;
+
+
+  //#################
+  beta  = 1. + (4./3./a) * (H_conf/H0) * H0rc * (1. + H_conf_prime/2./ (H_conf * H_conf) );
+
+  gridk2 = (Real *) malloc(linesize * sizeof(Real));
+  coeff /= -((long) linesize * (long) linesize * (long) linesize);
+
+  for (i = 0; i < linesize; i++)
+  {
+    gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
+    gridk2[i] *= gridk2[i];
+  }
+
+  k.first();
+  if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
+  {
+    if (modif == 0.)
+      potFT(k) = Cplx(0.,0.);
+    else
+      potFT(k) = sourceFT(k) * coeff / modif;
+    k.next();
+  }
+
+  for (; k.test(); k.next())
+  {
+    k2 = gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)];
+    k_gev=sqrt(k2/boxsize/boxsize/a/a); // We divided by scale factor since these are comoving and we wanted to make it physical!
+    epsilon = (k_gev/k_screen) * (k_gev/k_screen) * (k_gev/k_screen) ; //epsilon in according to our parametrization!
+    if (screening == 1) screen_term=(sqrt(1+epsilon) -1. )/epsilon; //The screening term!
+    else screen_term= 1;
+    //////////////////////////////////////////
+    ndgp_parametrized= 1 +  (2./3./beta) * screen_term; //The whole background and screening effect
+
+    potFT(k) = ((ndgp_parametrized - 1.) * sourceFT(k) +  sourceFT_full(k)) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
+  }
+
+  free(gridk2);
+  }
 
 //////////////////////////
 // solveModifiedPoissonFT_ Cubic Galileon
@@ -784,59 +902,6 @@ void Modified_Gravity_Newtonian_nDGP_screened(Field<FieldType> & source_mg, Fiel
   }
 
 
-
-//////////////////////////
-// solveModifiedPoissonFT
-//////////////////////////
-// Description:
-//   Modified Poisson solver using the standard Fourier method
-//
-// Arguments:
-//   sourceFT   reference to the Fourier image of the source field
-//   potFT      reference to the Fourier image of the potential
-//   coeff      coefficient applied to the source ("4 pi G / a")
-//   modif      modification k^2 -> k^2 + modif (default 0 gives standard Poisson equation)
-//
-// Returns:
-//
-//////////////////////////
-
-void solveModifiedPoissonFT(Field<Cplx> & sourceFT, Field<Cplx> & potFT, Real coeff, const Real modif = 0.)
-{
-	const int linesize = potFT.lattice().size(1);
-	int i;
-	Real * gridk2;
-	Real * sinc;
-	rKSite k(potFT.lattice());
-
-	gridk2 = (Real *) malloc(linesize * sizeof(Real));
-
-	coeff /= -((long) linesize * (long) linesize * (long) linesize);
-
-	for (i = 0; i < linesize; i++)
-	{
-		gridk2[i] = 2. * (Real) linesize * sin(M_PI * (Real) i / (Real) linesize);
-		gridk2[i] *= gridk2[i];
-	}
-
-	k.first();
-	if (k.coord(0) == 0 && k.coord(1) == 0 && k.coord(2) == 0)
-	{
-		if (modif == 0.)
-			potFT(k) = Cplx(0.,0.);
-		else
-			potFT(k) = sourceFT(k) * coeff / modif;
-		k.next();
-	}
-
-	for (; k.test(); k.next())
-	{
-		potFT(k) = sourceFT(k) * coeff / (gridk2[k.coord(0)] + gridk2[k.coord(1)] + gridk2[k.coord(2)] + modif);
-	}
-
-	free(gridk2);
-}
-#endif
 
 
 //////////////////////////
